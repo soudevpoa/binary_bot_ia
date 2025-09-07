@@ -39,3 +39,7 @@ class GerenciadorSoros:
         else:
             return round(saldo * 0.02, 2)
         return max(round(self.stake_atual, 2), 0.35)
+    
+    def calcular_stake_recuperacao(self, prejuizo_total, payout):
+        stake = round(prejuizo_total / payout, 2)
+        return max(stake, 0.35)

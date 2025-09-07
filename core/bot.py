@@ -5,7 +5,7 @@ from core.executor import Executor
 from core.logger import Logger
 from core.soros import GerenciadorSoros
 from core.saldo import Saldo
-
+from core.desempenho import PainelDesempenho
 class Bot:
     def __init__(self, config, token):
         self.config = config
@@ -29,6 +29,7 @@ class Bot:
         saldo = Saldo(mercado.ws)
 
         saldo_inicial = await saldo.consultar()
+        painel = PainelDesempenho(saldo_inicial)
         meta_lucro = saldo_inicial * self.config.get("meta_lucro_percentual", 0.10)
         stop_loss = saldo_inicial * self.config.get("stop_loss_percentual", 0.05)
 
@@ -74,11 +75,18 @@ class Bot:
                     print(f"📊 Resultado recebido: {resultado}")
 
                     if resultado in ["win", "loss"]:
+
+                        painel.registrar_operacao(
+                        saldo_atual=saldo_atual,
+                        resultado=resultado,
+                        stake=stake,
+                        tipo=tipo
+                         )
+
                         soros.registrar_resultado(resultado)
                         print(f"🔁 Soros etapa: {soros.etapa} | Próxima stake: {soros.stake_atual:.2f}")
-
                         logger.registrar(tipo, price, rsi, lower, upper, stake)
-
+                        
                         if resultado == "loss":
                             self.loss_count += 1
                             operacoes_realizadas = self.loss_count + self.profit_count
