@@ -1,1 +1,4 @@
 Hora,Saldo,Lucro,Resultado,Stake,Tipo
+03:36:18,10000,0,loss,100.0,CALL
+03:37:26,9900,-100,loss,105.26,CALL
+03:38:37,9794.74,-205.26,loss,216.06,CALL

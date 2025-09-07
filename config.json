@@ -9,6 +9,6 @@
   "meta_lucro_percentual": 0.10,
   "stop_loss_percentual": 0.05,
   "max_operacoes": 20,
-  "modo_simulacao": true
+  "modo_simulacao": false
 
 }

@@ -5,6 +5,7 @@ from core.logger import Logger
 from core.soros import GerenciadorSoros
 from core.saldo import Saldo
 from core.desempenho import PainelDesempenho
+from estrategias.martingale_inteligente import MartingaleInteligente
 
 class Bot:
     def __init__(self, config, token):
@@ -48,6 +49,7 @@ class Bot:
 
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
         soros = GerenciadorSoros(stake_base, max_etapas=2)
+        martingale = MartingaleInteligente(stake_base=stake_base, max_niveis=3)
 
         print(f"📡 Bot iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
@@ -95,12 +97,7 @@ class Bot:
                 saldo_atual = await saldo.consultar()
                 prejuizo_total = saldo_atual - saldo_inicial
 
-                if prejuizo_total < 0:
-                    stake = soros.calcular_stake_recuperacao(abs(prejuizo_total), payout=0.95)
-                    print(f"🔁 Recuperando prejuízo: {prejuizo_total:.2f} | Stake ajustada: {stake:.2f}")
-                else:
-                    stake = soros.get_stake(saldo_atual)
-
+                stake = martingale.get_stake()
                 print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
                 if self.modo_simulacao:
@@ -115,6 +112,7 @@ class Bot:
                 if resultado in ["win", "loss"]:
                     painel.registrar_operacao(saldo_atual, resultado, stake, tipo)
                     soros.registrar_resultado(resultado)
+                    martingale.registrar_resultado(resultado)
                     print(f"🔁 Soros etapa: {soros.etapa} | Próxima stake: {soros.stake_atual:.2f}")
 
                     if self.config["estrategia"] == "rsi_bollinger":
