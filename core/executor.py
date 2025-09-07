@@ -41,6 +41,7 @@ class Executor:
                 print(f"📥 Ignorando mensagem: {msg_type}")
 
         # Aguarda resultado do contrato com tentativas e requisição ativa
+        contrato = None
         tentativas = 0
         try:
             while tentativas < 20:
@@ -59,7 +60,7 @@ class Executor:
                    contrato = resultado_data["proposal_open_contract"]
 
                 # ✅ Insere aqui:
-                vendido = contrato.get('is_sold', False)
+                vendido = contrato.get("is_sold", False) if contrato else False
                 lucro = contrato.get('profit', 0)
                 print(f"📦 Contrato recebido: vendido={vendido} | lucro={lucro}")
 

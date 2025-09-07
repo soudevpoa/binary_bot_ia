@@ -22,6 +22,15 @@ class Bot:
 
         await mercado.subscrever_ticks(self.config["volatility_index"])
         asyncio.create_task(mercado.manter_conexao())
+        
+        if self.config["estrategia"] == "rsi_bollinger":
+         from core.estrategia_rsi import EstrategiaRSI
+         estrategia = EstrategiaRSI(self.config["rsi_period"], self.config["bollinger_period"])
+        elif self.config["estrategia"] == "media_movel":
+            from core.estrategia_mm import EstrategiaMM
+            estrategia = EstrategiaMM(self.config["mm_periodo_curto"], self.config["mm_periodo_longo"])
+        else:
+            raise ValueError(f"Estratégia desconhecida: {self.config['estrategia']}")
 
         estrategia = Estrategia(self.config["rsi_period"], self.config["bollinger_period"])
         executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"])
