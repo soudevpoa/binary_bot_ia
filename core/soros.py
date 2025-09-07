@@ -25,7 +25,10 @@ class GerenciadorSoros:
         self.stake_atual = self.stake_base
         self.etapa = 1
 
-    def get_stake(self, saldo=None):
-     if saldo:
-        return round(saldo * 0.01, 2)  # Ex: 1% do saldo
-     return round(self.stake_atual, 2)
+    def get_stake(self, saldo):
+        if saldo < 20:
+            return 0.35
+        elif saldo < 100:
+            return round(saldo * 0.01, 2)
+        else:
+            return round(saldo * 0.02, 2)
