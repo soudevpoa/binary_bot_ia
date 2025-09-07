@@ -24,11 +24,18 @@ class GerenciadorSoros:
     def resetar(self):
         self.stake_atual = self.stake_base
         self.etapa = 1
+    
+    def reduzir_stake(self, fator=0.5):
+        self.stake_atual = max(round(self.stake_atual * fator, 2), 0.35)
+        self.etapa = 0
 
-    def get_stake(self, saldo):
-        if saldo < 20:
-            return 0.35
+
+    def get_stake(self, saldo=None):
+        if saldo is not None:
+            if saldo < 20:
+                return 0.35
         elif saldo < 100:
             return round(saldo * 0.01, 2)
         else:
             return round(saldo * 0.02, 2)
+        return max(round(self.stake_atual, 2), 0.35)

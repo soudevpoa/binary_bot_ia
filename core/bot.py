@@ -5,7 +5,6 @@ from core.executor import Executor
 from core.logger import Logger
 from core.soros import GerenciadorSoros
 from core.saldo import Saldo
-import websockets
 
 class Bot:
     def __init__(self, config, token):
@@ -23,31 +22,31 @@ class Bot:
 
         await mercado.subscrever_ticks(self.config["volatility_index"])
         asyncio.create_task(mercado.manter_conexao())
-        # ✅ Consulta saldo inicial e define stake base
-        saldo = Saldo(mercado.ws)
-        saldo_atual = await saldo.consultar()
-        stake_base = round(saldo_atual * 0.01, 2)
-        soros = GerenciadorSoros(stake_base, max_etapas=2)
-
 
         estrategia = Estrategia(self.config["rsi_period"], self.config["bollinger_period"])
         executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"])
         logger = Logger()
-        soros = GerenciadorSoros(self.config["stake"], max_etapas=2)
+        saldo = Saldo(mercado.ws)
 
-        print(f"📡 Bot iniciado para {self.config['volatility_index']}")
+        saldo_inicial = await saldo.consultar()
+        meta_lucro = saldo_inicial * self.config.get("meta_lucro_percentual", 0.10)
+        stop_loss = saldo_inicial * self.config.get("stop_loss_percentual", 0.05)
+
+        stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
+        soros = GerenciadorSoros(stake_base, max_etapas=2)
+
+        print(f"📡 Bot iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
         while True:
             try:
                 msg = await mercado.ws.recv()
-            except websockets.ConnectionClosedError:
-                print("⚠️ Conexão encerrada inesperadamente. Tentando reconectar...")
+            except Exception as e:
+                print(f"⚠️ Erro na conexão: {e}")
                 await mercado.conectar()
-                if not await mercado.autenticar(self.token):
-                    print("❌ Falha na autenticação após reconexão.")
-                    break
+                await mercado.autenticar(self.token)
                 await mercado.subscrever_ticks(self.config["volatility_index"])
                 continue
+
             data = mercado.processar_tick(msg)
             if not data:
                 continue
@@ -61,10 +60,8 @@ class Bot:
                 print(f"💹 Preço: {price:.2f} | RSI: {rsi:.2f} | BB: [{lower:.2f}, {upper:.2f}]")
 
                 if tipo is not None:
-                    saldo = Saldo(mercado.ws)
                     saldo_atual = await saldo.consultar()
-                    stake = soros.get_stake(saldo=saldo_atual)
-
+                    stake = soros.get_stake(saldo_atual)
                     print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
                     resultado = await executor.enviar_ordem(tipo, stake)
                     print(f"📊 Resultado recebido: {resultado}")
@@ -77,18 +74,33 @@ class Bot:
 
                         if resultado == "loss":
                             self.loss_count += 1
+                            operacoes_realizadas = self.loss_count + self.profit_count
+
+                            if operacoes_realizadas >= self.config.get("max_operacoes", 20):
+                                print("⏸️ Limite de operações atingido. Pausando o bot.")
+                                break
+                            if self.loss_count >= 3:
+                                soros.reduzir_stake(fator=0.5)
+                                print("⚠️ Reduzindo stake após sequência de perdas.")
                         elif resultado == "win":
                             self.profit_count += 1
+
+                        operacoes_realizadas = self.loss_count + self.profit_count
+                        if operacoes_realizadas >= self.config.get("max_operacoes", 20):
+                            print("⏸️ Limite de operações atingido. Encerrando.")
+                            break
+
+                        saldo_atual = await saldo.consultar()
+                        lucro_total = saldo_atual - saldo_inicial
+
+                        if lucro_total >= meta_lucro:
+                            print("🎯 Meta de lucro atingida. Encerrando.")
+                            break
+
+                        if lucro_total <= -stop_loss:
+                            print("🛑 Stop loss atingido. Encerrando.")
+                            break
 
                         await asyncio.sleep(10)
                     else:
                         print("⚠️ Resultado inválido ou erro na operação. Continuando...")
-
-                # Verificação de limites de risco (fora do bloco de resultado)
-                if self.loss_count >= self.config.get("loss_limit", 5):
-                    print("⚠️ Limite de perdas atingido. Encerrando.")
-                    break
-
-                if self.profit_count >= self.config.get("profit_target", 10):
-                    print("🎯 Meta de lucro atingida. Encerrando.")
-                    break
