@@ -5,6 +5,7 @@ from core.logger import Logger
 from core.soros import GerenciadorSoros
 from core.saldo import Saldo
 from core.desempenho import PainelDesempenho
+from estrategias.martingale_inteligente import MartingaleInteligente
 
 class BotBase:
     def __init__(self, config, token, estrategia):
@@ -51,6 +52,7 @@ class BotBase:
 
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
         soros = GerenciadorSoros(stake_base, max_etapas=2)
+        martingale = MartingaleInteligente(stake_base=stake_base, max_niveis=3)
 
         print(f"📡 Bot iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
@@ -81,11 +83,14 @@ class BotBase:
                 tipo, rsi, lower, upper, padrao = self.estrategia.decidir(self.prices)
 
             if tipo is None:
-                print("⚠️ Nenhum sinal gerado. Aguardando próximo tick.")
+                print("📡 Nenhum sinal gerado. Aguardando próximo tick.")
                 continue
 
             saldo_atual = await saldo.consultar()
-            stake = soros.get_stake(saldo_atual)
+
+            # Stake combinada: Soros + Martingale
+            stake_soros = soros.get_stake(saldo_atual)
+            stake = martingale.get_stake(stake_soros)
 
             print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
@@ -101,6 +106,7 @@ class BotBase:
             if resultado in ["win", "loss"]:
                 painel.registrar_operacao(saldo_atual, resultado, stake, tipo)
                 soros.registrar_resultado(resultado)
+                martingale.registrar_resultado(resultado)
                 logger.registrar(tipo, price, rsi, lower, upper, stake)
 
                 self.loss_count += resultado == "loss"
