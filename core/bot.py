@@ -61,7 +61,14 @@ class Bot:
 
                 if tipo is not None:
                     saldo_atual = await saldo.consultar()
-                    stake = soros.get_stake(saldo_atual)
+                    prejuizo_total = saldo_atual - saldo_inicial
+
+                    if prejuizo_total < 0:
+                        stake = soros.calcular_stake_recuperacao(abs(prejuizo_total), payout=0.95)
+                        print(f"🔁 Recuperando prejuízo: {prejuizo_total:.2f} | Stake ajustada: {stake:.2f}")
+                    else:
+                        stake = soros.get_stake(saldo_atual)
+
                     print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
                     resultado = await executor.enviar_ordem(tipo, stake)
                     print(f"📊 Resultado recebido: {resultado}")
