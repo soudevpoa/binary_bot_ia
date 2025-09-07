@@ -12,6 +12,9 @@ class Logger:
                 writer = csv.writer(file)
                 writer.writerow(["Data", "Tipo", "Preço", "RSI", "BB Inferior", "BB Superior", "Stake"])
 
+    def safe_round(self, value, digits=2):
+        return round(value, digits) if value is not None else None
+
     def registrar(self, tipo, price, rsi, lower, upper, stake):
         with open(self.caminho, mode="a", newline="") as file:
             writer = csv.writer(file)
@@ -19,8 +22,8 @@ class Logger:
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 tipo,
                 round(price, 2),
-                round(rsi, 2),
-                round(lower, 2),
-                round(upper, 2),
+                self.safe_round(rsi),
+                self.safe_round(lower),
+                self.safe_round(upper),
                 round(stake, 2)
             ])

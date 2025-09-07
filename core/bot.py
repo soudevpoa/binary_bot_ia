@@ -116,7 +116,11 @@ class Bot:
                     painel.registrar_operacao(saldo_atual, resultado, stake, tipo)
                     soros.registrar_resultado(resultado)
                     print(f"🔁 Soros etapa: {soros.etapa} | Próxima stake: {soros.stake_atual:.2f}")
-                    logger.registrar(tipo, price, rsi, lower, upper, stake)
+
+                    if self.config["estrategia"] == "rsi_bollinger":
+                        logger.registrar(tipo, price, rsi, lower, upper, stake)
+                    else:
+                        logger.registrar(tipo, price, None, None, None, stake)
 
                     if resultado == "loss":
                         self.loss_count += 1
