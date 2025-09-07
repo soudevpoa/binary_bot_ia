@@ -1,6 +1,8 @@
 {
   "volatility_index": "R_100",
-  "estrategia": "rsi_bollinger",
+  "estrategia": "bollinger_volatilidade",
+  "periodo":20,
+  "desvio":2,
   "stake": 0.40,
   "rsi_period": 14,
   "bollinger_period": 20,

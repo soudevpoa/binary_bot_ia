@@ -16,7 +16,9 @@ class EstrategiaBollingerVolatilidade:
         lower = media - self.desvio * std
         price = prices[-1]
 
-        volatilidade = std / media  # Volatilidade relativa
+        volatilidade = std / media if media != 0 else 0  # Volatilidade relativa
+        print(f"🔍 Preço: {price:.2f} | Média: {media:.2f} | Volatilidade: {volatilidade:.3f}")
+
 
         if price > upper and volatilidade > self.limiar_volatilidade:
             return "PUT", price, lower, upper, "rompimento_superior"

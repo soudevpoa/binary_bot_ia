@@ -19,9 +19,6 @@ class BotBase:
         self.profit_count = 0
 
     def gerar_candles(self):
-        """
-        Converte a lista de preços em candles simples para estratégias como Price Action.
-        """
         candles = []
         for i in range(len(self.prices) - 1):
             candle = {
@@ -76,7 +73,6 @@ class BotBase:
             print("🔄 Loop ativo | Preço atual:", price)
             self.prices.append(price)
 
-            # Estratégia Price Action usa candles
             if self.config["estrategia"] == "price_action":
                 candles = self.gerar_candles()
                 tipo, rsi, lower, upper, padrao = self.estrategia.decidir(candles)
@@ -85,14 +81,13 @@ class BotBase:
                 tipo, rsi, lower, upper, padrao = self.estrategia.decidir(self.prices)
 
             if tipo is None:
-                print("📡 Nenhum sinal gerado. Aguardando próximo tick.")
+                print("⏳ Nenhum sinal gerado. Aguardando próximo tick.")
                 continue
 
             saldo_atual = await saldo.consultar()
 
-            # Stake combinada: Soros + Martingale
             stake_soros = soros.get_stake(saldo_atual)
-            stake = martingale.get_stake(stake_soros)
+            stake = martingale.get_stake()
 
             print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
