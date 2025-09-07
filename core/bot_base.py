@@ -6,6 +6,7 @@ from core.soros import GerenciadorSoros
 from core.saldo import Saldo
 from core.desempenho import PainelDesempenho
 from estrategias.martingale_inteligente import MartingaleInteligente
+from core.probabilidade_estatistica import ProbabilidadeEstatistica
 
 class BotBase:
     def __init__(self, config, token, estrategia):
@@ -53,14 +54,7 @@ class BotBase:
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
         soros = GerenciadorSoros(stake_base, max_etapas=2)
         martingale = MartingaleInteligente(stake_base=stake_base, max_niveis=3)
-        
-        from core.probabilidade_estatistica import ProbabilidadeEstatistica
         estatistica = ProbabilidadeEstatistica()
-        estatistica.registrar_operacao(tipo, resultado, padrao)
-        taxa = estatistica.calcular_taxa_acerto(padrao)
-        print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
-
-
 
         print(f"📡 Bot iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
@@ -115,6 +109,9 @@ class BotBase:
                 painel.registrar_operacao(saldo_atual, resultado, stake, tipo)
                 soros.registrar_resultado(resultado)
                 martingale.registrar_resultado(resultado)
+                estatistica.registrar_operacao(tipo, resultado, padrao)
+                taxa = estatistica.calcular_taxa_acerto(padrao)
+                print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
                 logger.registrar(tipo, price, rsi, lower, upper, stake)
 
                 self.loss_count += resultado == "loss"
