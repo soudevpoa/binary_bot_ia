@@ -53,6 +53,14 @@ class BotBase:
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
         soros = GerenciadorSoros(stake_base, max_etapas=2)
         martingale = MartingaleInteligente(stake_base=stake_base, max_niveis=3)
+        
+        from core.probabilidade_estatistica import ProbabilidadeEstatistica
+        estatistica = ProbabilidadeEstatistica()
+        estatistica.registrar_operacao(tipo, resultado, padrao)
+        taxa = estatistica.calcular_taxa_acerto(padrao)
+        print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
+
+
 
         print(f"📡 Bot iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
