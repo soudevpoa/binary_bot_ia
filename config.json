@@ -1,0 +1,8 @@
+{
+  "volatility_index": "R_100",
+  "stake": 0.4,
+  "rsi_period": 14,
+  "bollinger_period": 20,
+  "loss_limit": 5,
+  "profit_target": 10
+}
