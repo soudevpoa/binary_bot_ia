@@ -9,6 +9,7 @@ from core.desempenho import PainelDesempenho
 class Bot:
     def __init__(self, config, token):
         self.config = config
+        self.modo_simulacao = config.get("modo_simulacao", False)
         self.token = token
         self.prices = []
         self.loss_count = 0
@@ -80,7 +81,13 @@ class Bot:
                         stake = soros.get_stake(saldo_atual)
 
                     print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
-                    resultado = await executor.enviar_ordem(tipo, stake)
+
+                    if self.modo_simulacao:
+                        import random
+                        resultado = random.choice(["win", "loss"])
+                        print(f"🧪 Modo simulação ativo | Resultado simulado: {resultado}")
+                    else:
+                        resultado = await executor.enviar_ordem(tipo, stake)
                     print(f"📊 Resultado recebido: {resultado}")
 
                     if resultado in ["win", "loss"]:
