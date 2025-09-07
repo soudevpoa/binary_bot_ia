@@ -1,6 +1,6 @@
 {
   "volatility_index": "R_100",
-  "estrategia": "rsi_bollinger",
+  "estrategia": "price_action",
   "stake": 0.40,
   "rsi_period": 14,
   "bollinger_period": 20,

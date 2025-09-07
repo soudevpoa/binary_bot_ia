@@ -1,11 +1,11 @@
 import asyncio
 from core.mercado import Mercado
-from core.estrategia import Estrategia
 from core.executor import Executor
 from core.logger import Logger
 from core.soros import GerenciadorSoros
 from core.saldo import Saldo
 from core.desempenho import PainelDesempenho
+
 class Bot:
     def __init__(self, config, token):
         self.config = config
@@ -23,17 +23,20 @@ class Bot:
 
         await mercado.subscrever_ticks(self.config["volatility_index"])
         asyncio.create_task(mercado.manter_conexao())
-        
+
+        # Estratégia dinâmica
         if self.config["estrategia"] == "rsi_bollinger":
-         from core.estrategia_rsi import EstrategiaRSI
-         estrategia = EstrategiaRSI(self.config["rsi_period"], self.config["bollinger_period"])
+            from core.estrategia_rsi import EstrategiaRSI
+            estrategia = EstrategiaRSI(self.config["rsi_period"], self.config["bollinger_period"])
         elif self.config["estrategia"] == "media_movel":
             from core.estrategia_mm import EstrategiaMM
             estrategia = EstrategiaMM(self.config["mm_periodo_curto"], self.config["mm_periodo_longo"])
+        elif self.config["estrategia"] == "price_action":
+            from core.estrategia_price_action import EstrategiaPriceAction
+            estrategia = EstrategiaPriceAction()
         else:
             raise ValueError(f"Estratégia desconhecida: {self.config['estrategia']}")
 
-        estrategia = Estrategia(self.config["rsi_period"], self.config["bollinger_period"])
         executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"])
         logger = Logger()
         saldo = Saldo(mercado.ws)
@@ -66,72 +69,83 @@ class Bot:
             print("🔄 Loop ativo | Preço atual:", price)
             self.prices.append(price)
 
-            if len(self.prices) >= self.config["bollinger_period"]:
-                tipo, rsi, lower, upper = estrategia.decidir(self.prices)
-                print(f"💹 Preço: {price:.2f} | RSI: {rsi:.2f} | BB: [{lower:.2f}, {upper:.2f}]")
+            tipo = None
+            rsi = lower = upper = padrao = None
 
-                if tipo is not None:
-                    saldo_atual = await saldo.consultar()
-                    prejuizo_total = saldo_atual - saldo_inicial
+            if self.config["estrategia"] == "rsi_bollinger":
+                if len(self.prices) >= self.config["bollinger_period"]:
+                    tipo, rsi, lower, upper = estrategia.decidir(self.prices)
+                    print(f"💹 Preço: {price:.2f} | RSI: {rsi:.2f} | BB: [{lower:.2f}, {upper:.2f}]")
 
-                    if prejuizo_total < 0:
-                        stake = soros.calcular_stake_recuperacao(abs(prejuizo_total), payout=0.95)
-                        print(f"🔁 Recuperando prejuízo: {prejuizo_total:.2f} | Stake ajustada: {stake:.2f}")
-                    else:
-                        stake = soros.get_stake(saldo_atual)
+            elif self.config["estrategia"] == "price_action":
+                if len(self.prices) >= 2:
+                    candles = []
+                    for i in range(len(self.prices) - 1):
+                        candle = {
+                            "open": self.prices[i],
+                            "close": self.prices[i + 1],
+                            "high": max(self.prices[i], self.prices[i + 1]),
+                            "low": min(self.prices[i], self.prices[i + 1])
+                        }
+                        candles.append(candle)
+                    tipo, padrao = estrategia.decidir(candles)
+                    print(f"📊 Price Action detectado: {padrao}")
 
-                    print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
+            if tipo is not None:
+                saldo_atual = await saldo.consultar()
+                prejuizo_total = saldo_atual - saldo_inicial
 
-                    if self.modo_simulacao:
-                        import random
-                        resultado = random.choice(["win", "loss"])
-                        print(f"🧪 Modo simulação ativo | Resultado simulado: {resultado}")
-                    else:
-                        resultado = await executor.enviar_ordem(tipo, stake)
-                    print(f"📊 Resultado recebido: {resultado}")
+                if prejuizo_total < 0:
+                    stake = soros.calcular_stake_recuperacao(abs(prejuizo_total), payout=0.95)
+                    print(f"🔁 Recuperando prejuízo: {prejuizo_total:.2f} | Stake ajustada: {stake:.2f}")
+                else:
+                    stake = soros.get_stake(saldo_atual)
 
-                    if resultado in ["win", "loss"]:
+                print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
-                        painel.registrar_operacao(
-                        saldo_atual=saldo_atual,
-                        resultado=resultado,
-                        stake=stake,
-                        tipo=tipo
-                         )
+                if self.modo_simulacao:
+                    import random
+                    resultado = random.choice(["win", "loss"])
+                    print(f"🧪 Modo simulação ativo | Resultado simulado: {resultado}")
+                else:
+                    resultado = await executor.enviar_ordem(tipo, stake)
 
-                        soros.registrar_resultado(resultado)
-                        print(f"🔁 Soros etapa: {soros.etapa} | Próxima stake: {soros.stake_atual:.2f}")
-                        logger.registrar(tipo, price, rsi, lower, upper, stake)
-                        
-                        if resultado == "loss":
-                            self.loss_count += 1
-                            operacoes_realizadas = self.loss_count + self.profit_count
+                print(f"📊 Resultado recebido: {resultado}")
 
-                            if operacoes_realizadas >= self.config.get("max_operacoes", 20):
-                                print("⏸️ Limite de operações atingido. Pausando o bot.")
-                                break
-                            if self.loss_count >= 3:
-                                soros.reduzir_stake(fator=0.5)
-                                print("⚠️ Reduzindo stake após sequência de perdas.")
-                        elif resultado == "win":
-                            self.profit_count += 1
+                if resultado in ["win", "loss"]:
+                    painel.registrar_operacao(saldo_atual, resultado, stake, tipo)
+                    soros.registrar_resultado(resultado)
+                    print(f"🔁 Soros etapa: {soros.etapa} | Próxima stake: {soros.stake_atual:.2f}")
+                    logger.registrar(tipo, price, rsi, lower, upper, stake)
 
+                    if resultado == "loss":
+                        self.loss_count += 1
                         operacoes_realizadas = self.loss_count + self.profit_count
                         if operacoes_realizadas >= self.config.get("max_operacoes", 20):
-                            print("⏸️ Limite de operações atingido. Encerrando.")
+                            print("⏸️ Limite de operações atingido. Pausando o bot.")
                             break
+                        if self.loss_count >= 3:
+                            soros.reduzir_stake(fator=0.5)
+                            print("⚠️ Reduzindo stake após sequência de perdas.")
+                    elif resultado == "win":
+                        self.profit_count += 1
 
-                        saldo_atual = await saldo.consultar()
-                        lucro_total = saldo_atual - saldo_inicial
+                    operacoes_realizadas = self.loss_count + self.profit_count
+                    if operacoes_realizadas >= self.config.get("max_operacoes", 20):
+                        print("⏸️ Limite de operações atingido. Encerrando.")
+                        break
 
-                        if lucro_total >= meta_lucro:
-                            print("🎯 Meta de lucro atingida. Encerrando.")
-                            break
+                    saldo_atual = await saldo.consultar()
+                    lucro_total = saldo_atual - saldo_inicial
 
-                        if lucro_total <= -stop_loss:
-                            print("🛑 Stop loss atingido. Encerrando.")
-                            break
+                    if lucro_total >= meta_lucro:
+                        print("🎯 Meta de lucro atingida. Encerrando.")
+                        break
 
-                        await asyncio.sleep(10)
-                    else:
-                        print("⚠️ Resultado inválido ou erro na operação. Continuando...")
+                    if lucro_total <= -stop_loss:
+                        print("🛑 Stop loss atingido. Encerrando.")
+                        break
+
+                    await asyncio.sleep(10)
+                else:
+                    print("⚠️ Resultado inválido ou erro na operação. Continuando...")
