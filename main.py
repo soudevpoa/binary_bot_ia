@@ -8,10 +8,22 @@ from estrategias.bollinger_volatilidade import EstrategiaBollingerVolatilidade
 from bots.bot_volatilidade import EstrategiaBollingerVolatilidade
 from bots.bot_mm import iniciar_bot_mm
 from bots.bot_mm_rsi import iniciar_bot_mm_rsi
+import sys
 
 
 
-config = carregar_config("config.json")
+
+from config_loader import carregar_config  # Certifique-se que esse arquivo existe
+
+# Lê o nome da estratégia como argumento
+estrategia_nome = sys.argv[1]  # Ex: "rsi_bollinger"
+
+# Monta o caminho do config correspondente
+config_path = f"configs/config_{estrategia_nome}.json"
+
+# Carrega o config específico
+config = carregar_config(config_path)
+
 token = config["token"]
 
 if config["estrategia"] == "rsi_bollinger":

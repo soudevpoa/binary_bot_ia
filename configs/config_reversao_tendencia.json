@@ -1,0 +1,12 @@
+{
+"volatility_index": "R_100",
+"periodo": 20,
+"sensibilidade": 0.7,
+"rsi_period": 14,
+"stake": 0.40,
+"meta_lucro_percentual": 0.10,
+"stop_loss_percentual": 0.05,
+"max_operacoes": 20,
+"token": "GT5nKSpPMDLIJIg",
+"modo_simulacao": true
+}

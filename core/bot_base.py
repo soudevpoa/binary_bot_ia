@@ -73,7 +73,8 @@ class BotBase:
             print("🔄 Loop ativo | Preço atual:", price)
             self.prices.append(price)
 
-            if self.config["estrategia"] == "price_action":
+            if hasattr(self.estrategia, "tipo") and self.estrategia.tipo == "price_action":
+
                 candles = self.gerar_candles()
                 tipo, rsi, lower, upper, padrao = self.estrategia.decidir(candles)
                 print(f"📊 Price Action detectado: {padrao}")
