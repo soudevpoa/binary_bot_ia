@@ -24,5 +24,6 @@ class EstrategiaBollingerVolatilidade:
             return "PUT", price, lower, upper, "rompimento_superior"
         elif price < lower and volatilidade > self.limiar_volatilidade:
             return "CALL", price, lower, upper, "rompimento_inferior"
+        # return "CALL", price, lower, upper, "teste_forcado"
 
         return None, price, lower, upper, "neutro"

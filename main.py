@@ -5,6 +5,11 @@ from bots.bot_rsi import iniciar_bot_rsi
 from bots.bot_price_action import iniciar_bot_price_action
 from bots.bot_reversao import iniciar_bot_reversao
 from estrategias.bollinger_volatilidade import EstrategiaBollingerVolatilidade
+from bots.bot_volatilidade import EstrategiaBollingerVolatilidade
+from bots.bot_mm import iniciar_bot_mm
+from bots.bot_mm_rsi import iniciar_bot_mm_rsi
+
+
 
 config = carregar_config("config.json")
 token = config["token"]
@@ -17,6 +22,14 @@ elif config["estrategia"] == "price_action":
 
 elif config["estrategia"] == "reversao_tendencia":
     bot = iniciar_bot_reversao(config, token)
+    
+elif config["estrategia"] == "media_movel":
+    bot = iniciar_bot_mm(config, token)
+
+elif config["estrategia"] == "mm_rsi":
+    bot = iniciar_bot_mm_rsi(config, token)
+
+
 
 elif config["estrategia"] == "bollinger_volatilidade":
     estrategia = EstrategiaBollingerVolatilidade(

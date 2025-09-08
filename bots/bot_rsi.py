@@ -1,11 +1,11 @@
 from core.bot_base import BotBase
-from estrategias.bollinger_volatilidade import EstrategiaBollingerVolatilidade
+from estrategias.rsi_bollinger import EstrategiaRSI  # Certifica que esse arquivo existe
 
 def iniciar_bot_rsi(config, token):
-    estrategia = EstrategiaBollingerVolatilidade(
-        periodo=config["bollinger_period"],
-        desvio=2,
-        limiar_volatilidade=config["limiar_volatilidade"]
+    estrategia = EstrategiaRSI(
+        periodo=config["rsi_period"],
+        limite_superior=config["rsi_upper"],
+        limite_inferior=config["rsi_lower"]
     )
     bot = BotBase(config, token, estrategia)
     return bot
