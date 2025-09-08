@@ -10,6 +10,16 @@ class Executor:
         self.simulacao_ativa = simulacao_ativa
 
     async def enviar_ordem(self, tipo, stake):
+        # ✅ Verificação de stake mínima
+        if stake < 0.35:
+            print("⚠️ Stake abaixo do mínimo permitido pela Deriv.")
+            return "error"
+
+        # ✅ Validação do símbolo
+        if not self.symbol.startswith("R_"):
+            print(f"⚠️ Símbolo inválido: {self.symbol}")
+            return "error"
+
         # ✅ Simulação avançada
         if self.simulacao_ativa:
             vendido = True
@@ -39,16 +49,27 @@ class Executor:
             }
         }
 
+        print("📦 Ordem preparada:", json.dumps(ordem, indent=2))
         await self.ws.send(json.dumps(ordem))
-        print(f"📤 Ordem enviada: {contract_type} | Stake: {stake:.2f}")
+
+        response = await self.ws.recv()
+        data = json.loads(response)
+
+        if "error" in data:
+            print(f"❌ Erro ao enviar ordem: {data['error']['message']}")
+            return "error"
 
         # ✅ Aguarda confirmação da ordem
         contract_id = None
         while True:
-            response = await self.ws.recv()
-            data = json.loads(response)
-            msg_type = data.get("msg_type")
+            msg = await self.ws.recv()
+            data = json.loads(msg)
 
+            if "error" in data:
+                print(f"❌ Erro na confirmação: {data['error']['message']}")
+                return "error"
+
+            msg_type = data.get("msg_type")
             if msg_type == "buy":
                 contract_id = data["buy"]["contract_id"]
                 print(f"✅ Ordem executada! ID: {contract_id}")

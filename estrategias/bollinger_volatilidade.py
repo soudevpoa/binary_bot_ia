@@ -6,7 +6,11 @@ class EstrategiaBollingerVolatilidade:
         self.desvio = desvio
         self.limiar_volatilidade = limiar_volatilidade
 
-    def decidir(self, prices):
+    def decidir(self, prices, volatilidade, limiar_volatilidade):
+        if volatilidade < limiar_volatilidade:
+           return None, None, None, None, "Volatilidade insuficiente"
+
+
         if len(prices) < self.periodo:
             return None, None, None, None, "dados_insuficientes"
 
@@ -20,9 +24,9 @@ class EstrategiaBollingerVolatilidade:
         print(f"🔍 Preço: {price:.2f} | Média: {media:.2f} | Volatilidade: {volatilidade:.3f}")
 
 
-        if price > upper and volatilidade > self.limiar_volatilidade:
+        if price > upper and volatilidade > limiar_volatilidade:
             return "PUT", price, lower, upper, "rompimento_superior"
-        elif price < lower and volatilidade > self.limiar_volatilidade:
+        elif price < lower and volatilidade > limiar_volatilidade:
             return "CALL", price, lower, upper, "rompimento_inferior"
         # return "CALL", price, lower, upper, "teste_forcado"
 

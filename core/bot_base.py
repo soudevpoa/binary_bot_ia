@@ -1,4 +1,5 @@
 import asyncio
+import statistics
 from core.mercado import Mercado
 from core.executor import Executor
 from core.logger import Logger
@@ -8,8 +9,21 @@ from core.desempenho import PainelDesempenho
 from estrategias.martingale_inteligente import MartingaleInteligente
 from core.probabilidade_estatistica import ProbabilidadeEstatistica
 
+
+# ✅ Função auxiliar fora da classe
+def calcular_volatilidade(prices):
+    if len(prices) < 2:
+        return 0.0
+    return statistics.stdev(prices)
+
+def calcular_limiar_dinamico(vols):
+    if len(vols) < 5:
+        return 0.02  # valor mínimo de segurança
+    return sum(vols) / len(vols)  # média simples
+
 class BotBase:
     def __init__(self, config, token, estrategia):
+        self.historico_volatilidade = []
         self.config = config
         self.token = token
         self.estrategia = estrategia
@@ -72,14 +86,23 @@ class BotBase:
             price = data["price"]
             print("🔄 Loop ativo | Preço atual:", price)
             self.prices.append(price)
+            
+            volatilidade = calcular_volatilidade(self.prices)
+            self.historico_volatilidade.append(volatilidade)
+            print(f"📊 Volatilidade atual: {volatilidade:.5f}")
 
+            if len(self.historico_volatilidade) > 20:
+                self.historico_volatilidade.pop(0)
+           
             if hasattr(self.estrategia, "tipo") and self.estrategia.tipo == "price_action":
 
                 candles = self.gerar_candles()
                 tipo, rsi, lower, upper, padrao = self.estrategia.decidir(candles)
                 print(f"📊 Price Action detectado: {padrao}")
             else:
-                tipo, rsi, lower, upper, padrao = self.estrategia.decidir(self.prices)
+                limiar_dinamico = calcular_limiar_dinamico(self.historico_volatilidade)
+                print(f"📐 Limiar dinâmico: {limiar_dinamico:.5f}")
+                tipo, rsi, lower, upper, padrao = self.estrategia.decidir(self.prices, volatilidade, limiar_dinamico)
 
             if tipo is None:
                 print("⏳ Nenhum sinal gerado. Aguardando próximo tick.")
@@ -98,6 +121,7 @@ class BotBase:
                 print(f"🧪 Simulação ativa | Resultado: {resultado}")
             else:
                 resultado = await executor.enviar_ordem(tipo, stake)
+                print(f"📤 Enviando ordem real: {tipo} | Stake: {stake}")
 
             print(f"📊 Resultado: {resultado}")
 

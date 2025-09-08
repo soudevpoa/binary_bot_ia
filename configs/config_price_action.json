@@ -4,7 +4,7 @@
 "meta_lucro_percentual": 0.10,
 "stop_loss_percentual": 0.05,
 "max_operacoes": 20,
-"token": "SEU_TOKEN",
+"token": "GT5nKSpPMDLIJIg",
 "modo_simulacao": true,
 "limite_vela_alta": 0.7,
 "limite_vela_baixa": 0.3,
