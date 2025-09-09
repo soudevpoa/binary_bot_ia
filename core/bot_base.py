@@ -122,6 +122,12 @@ class BotBase:
             else:
                 resultado = await executor.enviar_ordem(tipo, stake)
                 print(f"📤 Enviando ordem real: {tipo} | Stake: {stake}")
+            if resultado == "erro_conexao":
+                    print("🔌 Conexão perdida durante envio de ordem. Tentando reconectar...")
+                    await mercado.conectar()
+                    await mercado.autenticar(self.token)
+                    await mercado.subscrever_ticks(self.config["volatility_index"])
+                    continue
 
             print(f"📊 Resultado: {resultado}")
 
