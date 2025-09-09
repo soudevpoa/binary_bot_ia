@@ -2,7 +2,7 @@
 "volatility_index": "R_25",
 "periodo": 20,
 "desvio": 1,
-"limiar_volatilidade": 0.05,
+"limiar_volatilidade": 0.01,
 "stake": 0.40,
 "meta_lucro_percentual": 0.10,
 "stop_loss_percentual": 0.05,

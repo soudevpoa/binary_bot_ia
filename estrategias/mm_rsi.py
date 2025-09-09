@@ -28,23 +28,23 @@ class EstrategiaMMRSI:
         rsi = 100 - (100 / (1 + rs))
         return round(rsi, 2)
 
-    def decidir(self, prices):
-        if len(prices) < max(self.mm_curto, self.mm_longo, self.rsi_period + 1):
+    def decidir(self, prices, volatilidade, limiar_volatilidade):
+        if volatilidade < limiar_volatilidade:
+            return None, None, None, None, "Volatilidade insuficiente"
+
+        if len(prices) < self.rsi_period:
             return None, None, None, None, "dados_insuficientes"
 
-        ma_curta = self.calcular_media(prices, self.mm_curto)
-        ma_longa = self.calcular_media(prices, self.mm_longo)
         rsi = self.calcular_rsi(prices)
+        media = self.calcular_media(prices, self.mm_longo)
         price = prices[-1]
 
-        print(f"🔍 MM Curta: {ma_curta:.2f} | MM Longa: {ma_longa:.2f} | RSI: {rsi}")
+        if rsi is None or media is None:
+            return None, None, None, None, "indicadores_indisponiveis"
 
-        if ma_curta > ma_longa and rsi < self.rsi_lower and self.ultima_direcao != "alta":
-            self.ultima_direcao = "alta"
-            return "CALL", rsi, ma_curta, ma_longa, "mm_rsi_alta"
+        if rsi > self.rsi_upper and price > media:
+            return "PUT", rsi, media, price, "sobrecompra"
+        elif rsi < self.rsi_lower and price < media:
+            return "CALL", rsi, media, price, "sobrevenda"
 
-        elif ma_curta < ma_longa and rsi > self.rsi_upper and self.ultima_direcao != "baixa":
-            self.ultima_direcao = "baixa"
-            return "PUT", rsi, ma_curta, ma_longa, "mm_rsi_baixa"
-
-        return None, rsi, ma_curta, ma_longa, "neutro"
+        return None, rsi, media, price, "neutro"

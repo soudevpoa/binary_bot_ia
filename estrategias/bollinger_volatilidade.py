@@ -1,7 +1,7 @@
 import numpy as np
 
 class EstrategiaBollingerVolatilidade:
-    def __init__(self, periodo=20, desvio=2, limiar_volatilidade=0.5):
+    def __init__(self, periodo=20, desvio=1, limiar_volatilidade=0.5):
         self.periodo = periodo
         self.desvio = desvio
         self.limiar_volatilidade = limiar_volatilidade

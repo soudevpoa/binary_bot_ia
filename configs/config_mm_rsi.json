@@ -10,5 +10,5 @@
 "stop_loss_percentual": 0.05,
 "max_operacoes": 20,
 "token": "GT5nKSpPMDLIJIg",
-"modo_simulacao": true
+"modo_simulacao": false
 }

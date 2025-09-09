@@ -18,3 +18,9 @@ def calcular_bb(prices, period=20):
     upper = sma.iloc[-1] + (2 * std.iloc[-1])
     lower = sma.iloc[-1] - (2 * std.iloc[-1])
     return lower, upper
+def calcular_rsi(prices):
+    # lógica simplificada do RSI
+    return 50  # placeholder
+
+def calcular_media_movel(prices):
+    return sum(prices) / len(prices)
