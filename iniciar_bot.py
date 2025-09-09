@@ -4,7 +4,6 @@ from config_loader import carregar_config
 from bots.bot_mm_rsi import iniciar_bot_mm_rsi
 from bots.bot_rsi import iniciar_bot_rsi
 from bots.bot_price_action import iniciar_bot_price_action
-from bots.bot_volatilidade import iniciar_bot_volatilidade
 from bots.bot_reversao import iniciar_bot_reversao
 import asyncio
 
@@ -13,7 +12,6 @@ estrategias_disponiveis = {
     "mm_rsi": iniciar_bot_mm_rsi,
     "rsi_bollinger": iniciar_bot_rsi,
     "price_action": iniciar_bot_price_action,
-    "bollinger_volatilidade": iniciar_bot_volatilidade,
     "reversao_tendencia": iniciar_bot_reversao  
 }
 

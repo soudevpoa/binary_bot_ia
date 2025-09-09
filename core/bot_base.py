@@ -9,8 +9,7 @@ from core.desempenho import PainelDesempenho
 from estrategias.martingale_inteligente import MartingaleInteligente
 from core.probabilidade_estatistica import ProbabilidadeEstatistica
 
-
-# ✅ Função auxiliar fora da classe
+# ✅ Funções auxiliares
 def calcular_volatilidade(prices):
     if len(prices) < 2:
         return 0.0
@@ -18,8 +17,8 @@ def calcular_volatilidade(prices):
 
 def calcular_limiar_dinamico(vols):
     if len(vols) < 5:
-        return 0.02  # valor mínimo de segurança
-    return sum(vols) / len(vols)  # média simples
+        return 0.02
+    return sum(vols) / len(vols)
 
 class BotBase:
     def __init__(self, config, token, estrategia):
@@ -86,16 +85,15 @@ class BotBase:
             price = data["price"]
             print("🔄 Loop ativo | Preço atual:", price)
             self.prices.append(price)
-            
+
             volatilidade = calcular_volatilidade(self.prices)
             self.historico_volatilidade.append(volatilidade)
             print(f"📊 Volatilidade atual: {volatilidade:.5f}")
 
             if len(self.historico_volatilidade) > 20:
                 self.historico_volatilidade.pop(0)
-           
-            if hasattr(self.estrategia, "tipo") and self.estrategia.tipo == "price_action":
 
+            if hasattr(self.estrategia, "tipo") and self.estrategia.tipo == "price_action":
                 candles = self.gerar_candles()
                 tipo, rsi, lower, upper, padrao = self.estrategia.decidir(candles)
                 print(f"📊 Price Action detectado: {padrao}")
@@ -109,7 +107,6 @@ class BotBase:
                 continue
 
             saldo_atual = await saldo.consultar()
-
             stake_soros = soros.get_stake(saldo_atual)
             stake = martingale.get_stake()
 
@@ -119,43 +116,51 @@ class BotBase:
                 import random
                 resultado = random.choice(["win", "loss"])
                 print(f"🧪 Simulação ativa | Resultado: {resultado}")
+                resposta = {
+                    "resultado": resultado,
+                    "payout": stake * 0.95,
+                    "timestamp": "simulado",
+                    "direcao": tipo,
+                    "stake": stake
+                }
             else:
-                resultado = await executor.enviar_ordem(tipo, stake)
-                print(f"📤 Enviando ordem real: {tipo} | Stake: {stake}")
-            if resultado == "erro_conexao":
-                    print("🔌 Conexão perdida durante envio de ordem. Tentando reconectar...")
-                    await mercado.conectar()
-                    await mercado.autenticar(self.token)
-                    await mercado.subscrever_ticks(self.config["volatility_index"])
-                    continue
+                resposta = await executor.enviar_ordem(tipo, stake)
 
-            print(f"📊 Resultado: {resultado}")
+            if isinstance(resposta, dict):
+                resultado = resposta["resultado"]
+                payout = resposta.get("payout", 0)
+                timestamp = resposta.get("timestamp")
+                direcao = resposta.get("direcao")
 
-            if resultado in ["win", "loss"]:
-                painel.registrar_operacao(saldo_atual, resultado, stake, tipo)
-                soros.registrar_resultado(resultado)
-                martingale.registrar_resultado(resultado)
-                estatistica.registrar_operacao(tipo, resultado, padrao)
-                taxa = estatistica.calcular_taxa_acerto(padrao)
-                print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
-                logger.registrar(tipo, price, rsi, lower, upper, stake)
+                print(f"📊 Resultado: {resultado}")
 
-                self.loss_count += resultado == "loss"
-                self.profit_count += resultado == "win"
+                if resultado in ["win", "loss"]:
+                    painel.registrar_operacao(saldo_atual, resultado, stake, direcao)
+                    soros.registrar_resultado(resultado)
+                    martingale.registrar_resultado(resultado)
+                    estatistica.registrar_operacao(direcao, resultado, padrao)
+                    taxa = estatistica.calcular_taxa_acerto(padrao)
+                    print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
+                    logger.registrar(direcao, price, rsi, lower, upper, stake)
 
-                operacoes = self.loss_count + self.profit_count
-                if operacoes >= self.config.get("max_operacoes", 20):
-                    print("⏸️ Limite de operações atingido.")
-                    break
+                    print(f"📝 Operação registrada: {resultado.upper()} | Direção: {direcao} | Stake: {stake} | Payout: {payout} | Horário: {timestamp}")
 
-                lucro_total = saldo_atual - saldo_inicial
-                if lucro_total >= meta_lucro:
-                    print("🎯 Meta de lucro atingida.")
-                    break
-                if lucro_total <= -stop_loss:
-                    print("🛑 Stop loss atingido.")
-                    break
+                    self.loss_count += 1 if resultado == "loss" else 0
+                    self.profit_count += 1 if resultado == "win" else 0
 
-                await asyncio.sleep(10)
-            else:
-                print("⚠️ Erro ou resultado inválido. Continuando...")
+                    operacoes = self.loss_count + self.profit_count
+                    if operacoes >= self.config.get("max_operacoes", 20):
+                        print("⏸️ Limite de operações atingido.")
+                        break
+
+                    lucro_total = saldo_atual - saldo_inicial
+                    if lucro_total >= meta_lucro:
+                        print("🎯 Meta de lucro atingida.")
+                        break
+                    if lucro_total <= -stop_loss:
+                        print("🛑 Stop loss atingido.")
+                        break
+
+                    await asyncio.sleep(10)
+                else:
+                    print("⚠️ Erro ou resultado inválido. Continuando...")
