@@ -150,6 +150,9 @@ class BotBase:
             self.historico_volatilidade.append(volatilidade)
             print(f"📊 Volatilidade atual: {volatilidade:.5f}")
 
+            if len(self.prices) > 30: # Mantém o histórico de preços pequeno
+                self.prices.pop(0)
+
             if len(self.historico_volatilidade) > 20:
                 self.historico_volatilidade.pop(0)
 
@@ -171,21 +174,26 @@ class BotBase:
                 print("⏳ Nenhum sinal gerado. Aguardando próximo tick.")
                 continue
 
-            # 🧠 Verifica taxa mínima de acerto
-            taxa_acerto = estatistica.calcular_taxa_acerto(padrao)
-            limite_taxa = self.config.get("taxa_minima_acerto", 60)
-            if taxa_acerto < limite_taxa:
-                print(f"🚫 Taxa de acerto para '{padrao}' é baixa ({taxa_acerto}%). Ignorando sinal.")
-                continue
-            
-            # --- Início do trecho corrigido ---
+            # 🧠 Lógica de filtro por estatística:
+            # Verifica se há dados suficientes para analisar o desempenho do padrão
+            operacoes_do_padrao = estatistica.get_total_operacoes(padrao)
+            min_operacoes_para_analise = self.config.get("min_operacoes_para_analise", 10)
+
+            if operacoes_do_padrao >= min_operacoes_para_analise:
+                taxa_acerto = estatistica.calcular_taxa_acerto(padrao)
+                limite_taxa = self.config.get("taxa_minima_acerto", 60)
+                if taxa_acerto < limite_taxa:
+                    print(f"🚫 Taxa de acerto para '{padrao}' é baixa ({taxa_acerto}%). Ignorando sinal.")
+                    continue
+            else:
+                print(f"📈 Coletando dados para '{padrao}' ({operacoes_do_padrao}/{min_operacoes_para_analise})")
+
             if mercado.ws.state != "OPEN":
                 print("🔌 WebSocket fechado. Tentando reconectar...")
                 await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
 
             saldo_atual = await saldo.consultar()
-            stake_soros = soros.get_stake(saldo_atual) # Não utilizado
-            stake = martingale.get_stake() # Aqui você escolhe se usa martingale ou soros
+            stake = martingale.get_stake()
 
             print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
@@ -248,4 +256,3 @@ class BotBase:
                 await asyncio.sleep(10)
             else:
                 print("⚠️ Erro ou resultado inválido. Continuando...")
-            # --- Fim do trecho corrigido ---

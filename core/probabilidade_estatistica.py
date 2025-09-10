@@ -24,6 +24,16 @@ class ProbabilidadeEstatistica:
         taxa = acertos / len(filtrado)
         return round(taxa * 100, 2)
 
+    def get_total_operacoes(self, padrao=None):
+        """
+        Retorna o número total de operações para um padrão específico.
+        """
+        if padrao is None:
+            return len(self.historico)
+        
+        count = sum(1 for h in self.historico if h["padrao"] == padrao)
+        return count
+
     def padroes_mais_lucrativos(self, top_n=3):
         padroes = {}
         for h in self.historico:
