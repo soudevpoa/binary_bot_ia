@@ -1,33 +1,29 @@
 class EstrategiaPriceAction:
     def __init__(self):
-        pass
+        self.tipo = "price_action"
 
     def decidir(self, candles):
         if len(candles) < 3:
-            return None, "dados_insuficientes"
+            return None, None, None, None, "dados_insuficientes"
 
         penultimo = candles[-2]
         ultimo = candles[-1]
 
-        # Engolfo de alta
         if penultimo["close"] < penultimo["open"] and ultimo["close"] > ultimo["open"]:
             if ultimo["open"] < penultimo["close"] and ultimo["close"] > penultimo["open"]:
-                return "CALL", "engolfo_alta"
+                return "CALL", None, None, None, "engolfo_alta"
 
-        # Engolfo de baixa
         if penultimo["close"] > penultimo["open"] and ultimo["close"] < ultimo["open"]:
             if ultimo["open"] > penultimo["close"] and ultimo["close"] < penultimo["open"]:
-                return "PUT", "engolfo_baixa"
+                return "PUT", None, None, None, "engolfo_baixa"
 
-        # Martelo
         if self._eh_martelo(ultimo):
-            return "CALL", "martelo"
+            return "CALL", None, None, None, "martelo"
 
-        # Estrela da manhã
         if self._eh_estrela_da_manha(candles):
-            return "CALL", "estrela_da_manha"
+            return "CALL", None, None, None, "estrela_da_manha"
 
-        return None, "neutro"
+        return None, None, None, None, "neutro"
 
     def _eh_martelo(self, candle):
         corpo = abs(candle["close"] - candle["open"])

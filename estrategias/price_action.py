@@ -1,4 +1,7 @@
 class EstrategiaPriceAction:
+    def __init__(self):
+        self.tipo = "price_action"
+
     def decidir(self, candles):
         if len(candles) < 2:
             return None, None, None, None, "dados_insuficientes"

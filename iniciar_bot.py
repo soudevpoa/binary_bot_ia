@@ -5,6 +5,9 @@ from bots.bot_mm_rsi import iniciar_bot_mm_rsi
 from bots.bot_rsi import iniciar_bot_rsi
 from bots.bot_price_action import iniciar_bot_price_action
 from bots.bot_reversao import iniciar_bot_reversao
+from bots.bot_mm import iniciar_bot_mm
+
+
 import asyncio
 
 # Mapeia nome da estratégia para função de inicialização
@@ -12,7 +15,10 @@ estrategias_disponiveis = {
     "mm_rsi": iniciar_bot_mm_rsi,
     "rsi_bollinger": iniciar_bot_rsi,
     "price_action": iniciar_bot_price_action,
-    "reversao_tendencia": iniciar_bot_reversao  
+    "reversao_tendencia": iniciar_bot_reversao,
+    "mm": iniciar_bot_mm,
+  
+    
 }
 
 

@@ -30,11 +30,8 @@ class EstrategiaReversaoTendencia:
         atual = prices[-1]
         anterior = prices[-2]
 
-        # Reversão de alta: RSI muito baixo + candle de recuperação
         if rsi < 30 and atual > anterior:
             return "CALL", "rsi_baixo_reversao_alta"
-
-        # Reversão de baixa: RSI muito alto + candle de queda
         if rsi > 70 and atual < anterior:
             return "PUT", "rsi_alto_reversao_baixa"
 
@@ -67,7 +64,7 @@ class EstrategiaReversaoTendencia:
             candles.append(candle)
         return candles
 
-    def decidir(self, prices):
+    def decidir(self, prices, volatilidade=None, limiar_dinamico=None):
         rsi = self.calcular_rsi(prices)
         tipo, padrao_rsi = self.detectar_reversao(prices)
         candles = self.gerar_candles(prices)
@@ -75,21 +72,16 @@ class EstrategiaReversaoTendencia:
         
         print(f"🔍 RSI: {rsi} | Candle: {padrao_candle} | Tipo: {tipo}")
 
-        lower, upper = None, None  # Não usa Bollinger aqui
+        lower, upper = None, None
 
-        # Se ambos os padrões forem detectados, reforça o sinal
         if tipo and padrao_candle:
             padrao_combinado = f"{padrao_rsi}+{padrao_candle}"
             return tipo, rsi, lower, upper, padrao_combinado
 
-        # Se apenas o padrão de candle indicar reversão
         if padrao_candle and not tipo:
             if rsi and rsi < 30 and padrao_candle == "martelo":
                 return "CALL", rsi, lower, upper, padrao_candle
             elif rsi and rsi > 70 and padrao_candle == "estrela_cadente":
                 return "PUT", rsi, lower, upper, padrao_candle
 
-        # Se apenas o RSI indicar reversão
         return tipo, rsi, lower, upper, padrao_rsi or "neutro"
-    
-

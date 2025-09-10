@@ -34,7 +34,7 @@ class EstrategiaRSI:
         lower = media - self.desvio * std
         return round(lower, 2), round(upper, 2)
 
-    def decidir(self, prices):
+    def decidir(self, prices, volatilidade=None, limiar_dinamico=None):
         if len(prices) < max(self.rsi_period + 1, self.bollinger_period):
             return None, None, None, None, "dados_insuficientes"
 
