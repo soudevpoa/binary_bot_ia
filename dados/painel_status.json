@@ -1,9 +1,9 @@
 {
-  "timestamp": "23:47:53",
-  "preco": 1208.32,
-  "volatilidade": 2.077,
-  "limiar": 1.99058,
-  "sinal": "CALL",
-  "padrao": "sobrevenda_confirmada",
-  "lucro": 481.52
+  "timestamp": "01:32:11",
+  "preco": 1209.1,
+  "volatilidade": 0.47297,
+  "limiar": 0.438,
+  "sinal": "PUT",
+  "padrao": "sobrecompra_confirmada",
+  "lucro": -719.11
 }
