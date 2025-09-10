@@ -3,7 +3,6 @@ import statistics
 import json
 import os
 from datetime import datetime, time
-import pytz
 from core.mercado import Mercado
 from core.executor import Executor
 from core.logger import Logger
@@ -116,8 +115,7 @@ class BotBase:
             # ⏰ Verifica se está dentro da janela de operação
             if self.config.get("usar_janela_horario", False):
                 janelas_config = self.config.get("janelas_horario", [])
-                fuso_horario_utc = pytz.utc
-                agora = datetime.now(fuso_horario_utc).time()
+                agora = datetime.now().time()
                 janelas = []
                 for janela in janelas_config:
                     try:

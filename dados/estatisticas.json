@@ -1,0 +1,212 @@
+[
+  {
+    "tipo": "PUT",
+    "resultado": "loss",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "loss",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "loss",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "win",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "win",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "loss",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "win",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "win",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "loss",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "PUT",
+    "resultado": "loss",
+    "padrao": "sobrecompra_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "win",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  },
+  {
+    "tipo": "CALL",
+    "resultado": "loss",
+    "padrao": "sobrevenda_confirmada"
+  }
+]
