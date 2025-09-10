@@ -177,73 +177,75 @@ class BotBase:
             if taxa_acerto < limite_taxa:
                 print(f"🚫 Taxa de acerto para '{padrao}' é baixa ({taxa_acerto}%). Ignorando sinal.")
                 continue
-
+            
+            # --- Início do trecho corrigido ---
             if mercado.ws.state != "OPEN":
-               print("🔌 WebSocket fechado. Tentando reconectar...")
-               await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
+                print("🔌 WebSocket fechado. Tentando reconectar...")
+                await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
 
-               saldo_atual = await saldo.consultar()
-               stake_soros = soros.get_stake(saldo_atual)
-               stake = martingale.get_stake()
+            saldo_atual = await saldo.consultar()
+            stake_soros = soros.get_stake(saldo_atual) # Não utilizado
+            stake = martingale.get_stake() # Aqui você escolhe se usa martingale ou soros
 
-               print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
+            print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
             if self.modo_simulacao:
-               import random
-               resultado = random.choice(["win", "loss"])
-               print(f"🧪 Simulação ativa | Resultado: {resultado}")
-               resposta = {
-                        "resultado": resultado,
-                        "payout": stake * 0.95,
-                        "timestamp": "simulado",
-                        "direcao": tipo,
-                        "stake": stake,
-                        "contract_id": "simulado"
-                    }
+                import random
+                resultado = random.choice(["win", "loss"])
+                print(f"🧪 Simulação ativa | Resultado: {resultado}")
+                resposta = {
+                    "resultado": resultado,
+                    "payout": stake * 0.95,
+                    "timestamp": "simulado",
+                    "direcao": tipo,
+                    "stake": stake,
+                    "contract_id": "simulado"
+                }
             else:
                 resposta = await executor.enviar_ordem(tipo, stake)
 
-                valido, motivo = validar_resposta_contrato(resposta)
-                if not valido:
-                    print(f"⚠️ Resposta inválida: {motivo}")
-                    print(f"📦 Resposta completa: {resposta}")
-                    continue
+            valido, motivo = validar_resposta_contrato(resposta)
+            if not valido:
+                print(f"⚠️ Resposta inválida: {motivo}")
+                print(f"📦 Resposta completa: {resposta}")
+                continue
 
-                resultado = resposta["resultado"]
-                payout = resposta.get("payout", 0)
-                timestamp = resposta.get("timestamp")
-                direcao = resposta.get("direcao")
+            resultado = resposta["resultado"]
+            payout = resposta.get("payout", 0)
+            timestamp = resposta.get("timestamp")
+            direcao = resposta.get("direcao")
 
-                print(f"📊 Resultado: {resultado}")
-                if resultado in ["win", "loss"]:
-                    painel.registrar_operacao(saldo_atual, resultado, stake, direcao)
-                    soros.registrar_resultado(resultado)
-                    martingale.registrar_resultado(resultado)
-                    estatistica.registrar_operacao(direcao, resultado, padrao)
-                    taxa = estatistica.calcular_taxa_acerto(padrao)
-                    print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
-                    logger.registrar(direcao, price, rsi, lower, upper, stake)
+            print(f"📊 Resultado: {resultado}")
+            if resultado in ["win", "loss"]:
+                painel.registrar_operacao(saldo_atual, resultado, stake, direcao)
+                soros.registrar_resultado(resultado)
+                martingale.registrar_resultado(resultado)
+                estatistica.registrar_operacao(direcao, resultado, padrao)
+                taxa = estatistica.calcular_taxa_acerto(padrao)
+                print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
+                logger.registrar(direcao, price, rsi, lower, upper, stake)
 
-                    print(f"📝 Operação registrada: {resultado.upper()} | Direção: {direcao} | Stake: {stake} | Payout: {payout} | Horário: {timestamp}")
+                print(f"📝 Operação registrada: {resultado.upper()} | Direção: {direcao} | Stake: {stake} | Payout: {payout} | Horário: {timestamp}")
 
-                    self.loss_count += 1 if resultado == "loss" else 0
-                    self.profit_count += 1 if resultado == "win" else 0
+                self.loss_count += 1 if resultado == "loss" else 0
+                self.profit_count += 1 if resultado == "win" else 0
 
-                    operacoes = self.loss_count + self.profit_count
-                    if operacoes >= self.config.get("max_operacoes", 20):
-                        print("⏸️ Limite de operações atingido.")
-                        break
+                operacoes = self.loss_count + self.profit_count
+                if operacoes >= self.config.get("max_operacoes", 20):
+                    print("⏸️ Limite de operações atingido.")
+                    break
 
-                    lucro_total = saldo_atual - saldo_inicial
-                    atualizar_painel_json(price, volatilidade, limiar_dinamico, tipo, padrao, lucro_total)
+                lucro_total = saldo_atual - saldo_inicial
+                atualizar_painel_json(price, volatilidade, limiar_dinamico, tipo, padrao, lucro_total)
 
-                    if lucro_total >= meta_lucro:
-                        print("🎯 Meta de lucro atingida.")
-                        break
-                    if lucro_total <= -stop_loss:
-                        print("🛑 Stop loss atingido.")
-                        break
+                if lucro_total >= meta_lucro:
+                    print("🎯 Meta de lucro atingida.")
+                    break
+                if lucro_total <= -stop_loss:
+                    print("🛑 Stop loss atingido.")
+                    break
 
-                    await asyncio.sleep(10)
-                else:
-                    print("⚠️ Erro ou resultado inválido. Continuando...")
+                await asyncio.sleep(10)
+            else:
+                print("⚠️ Erro ou resultado inválido. Continuando...")
+            # --- Fim do trecho corrigido ---
