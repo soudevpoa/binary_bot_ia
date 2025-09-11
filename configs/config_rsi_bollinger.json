@@ -6,7 +6,7 @@
 "stake_base": 0.40,
 "meta_lucro_percentual": 0.10,
 "stop_loss_percentual": 0.05,
-"max_operacoes": 20,
+"max_operacoes": 100,
 "token": "GT5nKSpPMDLIJIg",
 "modo_simulacao": false,
 "usar_janela_horario": false,
