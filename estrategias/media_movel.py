@@ -59,3 +59,5 @@ class EstrategiaMediaMovel:
         # Nenhuma condição atendida
         print("⏸️ Nenhuma condição atendida → Neutro")
         return None, "neutro"
+    def __str__(self):
+        return f"Média Móvel (Curto: {self.periodo_curto}, Longo: {self.periodo_longo})"

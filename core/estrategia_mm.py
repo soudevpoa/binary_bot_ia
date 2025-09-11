@@ -12,3 +12,4 @@ class EstrategiaMM:
         elif mm_curta < mm_longa:
             return "PUT", mm_curta, mm_longa
         return None, mm_curta, mm_longa
+    

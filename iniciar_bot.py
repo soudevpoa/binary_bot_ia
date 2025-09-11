@@ -8,34 +8,24 @@ from bots.bot_rsi import iniciar_bot_rsi
 from bots.bot_price_action import iniciar_bot_price_action
 from bots.bot_reversao import iniciar_bot_reversao
 from bots.bot_mm import iniciar_bot_mm
-from bots.bot_ia import BotIA # Importação do Bot de IA
+from bots.bot_ia import BotIA
 from bots.bot_megalodon import BotMegalodon
 
-
-# Mapeia nome da estratégia para função de inicialização
+# Mapeia o nome da estratégia para a classe/função de inicialização
 estrategias_disponiveis = {
     "mm_rsi": iniciar_bot_mm_rsi,
     "rsi_bollinger": iniciar_bot_rsi,
     "price_action": iniciar_bot_price_action,
     "reversao_tendencia": iniciar_bot_reversao,
     "mm": iniciar_bot_mm,
-    "ia": BotIA, 
+    "ia": BotIA,
     "megalodon": BotMegalodon,
 }
-
-def listar_configs():
-    arquivos = os.listdir("configs")
-    return [f for f in arquivos if f.startswith("config_") and f.endswith(".json")]
 
 def extrair_nome_estrategia(nome_arquivo):
     return nome_arquivo.replace("config_", "").replace(".json", "")
 
-def carregar_config():
-    with open("config.json", "r") as f:
-        return json.load(f)
-
-
-def main():
+async def main_async():
     print("📂 Configurações disponíveis:")
     arquivos = os.listdir("configs")
     arquivos_validos = [f for f in arquivos if extrair_nome_estrategia(f) in estrategias_disponiveis]
@@ -58,26 +48,30 @@ def main():
 
     nome_estrategia = extrair_nome_estrategia(nome_arquivo)
     config_path = os.path.join("configs", nome_arquivo)
+    
     config = carregar_config(config_path)
     token = config["token"]
-    
-    # Define o nome do arquivo de estatísticas com base na estratégia
     estatisticas_file = f"estatisticas_{nome_estrategia}.json"
 
     print(f"\n🚀 Iniciando bot com estratégia: {nome_estrategia}")
     
-    # Obtém a classe ou função de inicialização do dicionário
     iniciador_bot = estrategias_disponiveis.get(nome_estrategia)
     
+    bot = None
+    
     if iniciador_bot:
-        if isinstance(iniciador_bot, type):  # Se for uma classe (como BotIA ou BotMegalodon)
+        if isinstance(iniciador_bot, type):  # Se for uma CLASSE
             bot = iniciador_bot(config, token, estatisticas_file)
-        else:  # Se for uma função (como iniciar_bot_rsi)
-            bot = iniciador_bot(config, token, estatisticas_file)
+        else:  # Se for uma FUNÇÃO
+            # Chama a função e passa os argumentos
+            bot = await iniciador_bot(config, token, estatisticas_file)
             
-        asyncio.run(bot.iniciar())
+        if bot:
+            await bot.iniciar()
+        else:
+            print("❌ O bot não pôde ser inicializado. Verifique os erros anteriores.")
     else:
         print(f"❌ Estratégia '{nome_estrategia}' não está mapeada no dicionário.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main_async())

@@ -195,26 +195,18 @@ class BotBase:
             # 4️⃣ Decide operação
             volatilidade = calcular_volatilidade(self.prices)
             limiar_volatilidade = self.config.get("limiar_volatilidade", 0.0005)
-            # Chama a estratégia e captura tudo
-            decisao = self.estrategia.decidir(
-                self.prices, volatilidade, limiar_volatilidade     
-                
-            )
-
-            # Garante que é uma tupla/lista
+            
+            # Chama a estratégia e captura a decisão de forma segura
+            decisao = self.estrategia.decidir(self.prices, volatilidade, limiar_volatilidade)
+            
             if not isinstance(decisao, (list, tuple)):
                 print("⚠️ Estratégia retornou um valor inesperado:", decisao)
                 continue
 
             # Extrai tipo e padrao de forma segura
             tipo = decisao[0] if len(decisao) > 0 else None
-            padrao = decisao[-1] if len(decisao) > 0 else None  # último elemento como padrão
-
-            # Se não houver tipo, pula
-            if tipo is None:
-                continue
-
-
+            padrao = decisao[-1] if len(decisao) > 0 else None
+            
             if tipo is None:
                 continue
 

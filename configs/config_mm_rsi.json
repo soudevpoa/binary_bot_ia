@@ -13,7 +13,7 @@
   "max_operacoes": 200,
   "token": "GT5nKSpPMDLIJIg",
   "modo_simulacao": false,
-  "usar_janela_horario": true,
+  "usar_janela_horario": false,
   "janelas_horario": [
     { "inicio": "12:00", "fim": "18:00" }
   ],

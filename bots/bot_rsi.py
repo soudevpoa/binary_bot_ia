@@ -1,23 +1,21 @@
+import asyncio
+import json
 from core.bot_base import BotBase
 from estrategias.rsi_bollinger import EstrategiaRSI
-import json
 
-def iniciar_bot_rsi():
-    # Carrega configurações
-    with open("config/config_rsi.json", "r") as f:
-        config = json.load(f)
-
-    token = config["token"]
-    estatisticas_file = config["estatisticas_file"]
+async def iniciar_bot_rsi(config, token, estatisticas_file):
+    # A função agora recebe os argumentos diretamente do iniciar_bot.py.
+    # A lógica de carregar o arquivo de configuração foi removida daqui,
+    # pois agora ela está centralizada no iniciar_bot.py.
 
     estrategia = EstrategiaRSI(
         rsi_period=config["rsi_period"],
         bollinger_period=config["bollinger_period"],
         desvio=config["desvio"]
     )
-
+    
+    # Instancia o bot de forma correta com os argumentos recebidos
     bot = BotBase(config, token, estrategia, estatisticas_file)
-    bot.executar()
-
-if __name__ == "__main__":
-    iniciar_bot_rsi()
+    
+    # Retorna a instância do bot, sem iniciá-lo
+    return bot
