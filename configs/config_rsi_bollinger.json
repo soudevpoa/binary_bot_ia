@@ -8,6 +8,7 @@
 "stop_loss_percentual": 0.05,
 "max_operacoes": 100,
 "token": "GT5nKSpPMDLIJIg",
+"estatisticas_file": "estatisticas/rsi_bollinger.json",
 "modo_simulacao": false,
 "usar_janela_horario": false,
 "janelas_horario": [

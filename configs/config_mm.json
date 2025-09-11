@@ -1,5 +1,6 @@
 {
   "token": "GT5nKSpPMDLIJIg",
+  "estatisticas_file": "estatisticas/mm.json",
   "volatility_index": "R_50",
   "stake_base": 1.0,
   "mm_periodo_curto": 5,

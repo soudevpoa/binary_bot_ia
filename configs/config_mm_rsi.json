@@ -1,6 +1,7 @@
 {
 
-  "volatility_index": "R_75",
+  "volatility_index": "R_100",
+  "estatisticas_file": "estatisticas/mm_rsi.json",
   "mm_periodo_curto": 5,
   "mm_periodo_longo": 20,
   "rsi_period": 14,

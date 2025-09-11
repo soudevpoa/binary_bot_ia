@@ -5,6 +5,7 @@
 "stop_loss_percentual": 0.05,
 "max_operacoes": 20,
 "token": "GT5nKSpPMDLIJIg",
+"estatisticas_file": "estatisticas/price_action.json",
 "limite_vela_alta": 0.7,
 "limite_vela_baixa": 0.3,
 "minimo_corpo_percentual": 0.5,

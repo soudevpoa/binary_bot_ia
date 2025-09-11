@@ -1,5 +1,26 @@
+# Ambientes virtuais
+venv/
+.env/
+
+# Arquivos de configuração sensíveis
+config_*.json
+*.token
+
+# Arquivos gerados automaticamente
 __pycache__/
 *.pyc
-logs/
+*.log
 *.csv
+*.xlsx
+*.db
+historico_megalodon.json
 estatisticas_*.json
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
