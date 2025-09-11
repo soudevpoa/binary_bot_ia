@@ -1,6 +1,7 @@
 # Ambientes virtuais
 venv/
 .env/
+.venv/
 
 # Arquivos de configuração sensíveis
 config_*.json
@@ -9,9 +10,13 @@ config_*.json
 # Arquivos gerados automaticamente
 __pycache__/
 *.pyc
+*.pkl
 *.log
 *.csv
 *.xlsx
+logs/
+estatisticas/
+*.csv
 *.db
 historico_megalodon.json
 estatisticas_*.json
