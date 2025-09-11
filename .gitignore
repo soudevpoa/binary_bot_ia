@@ -2,21 +2,23 @@
 venv/
 .env/
 .venv/
+__pycache__/
+*.pyc
+*.dll
+*.log
+*.csv
+logs/
+estatisticas/
+
 
 # Arquivos de configuração sensíveis
 config_*.json
 *.token
 
 # Arquivos gerados automaticamente
-__pycache__/
-*.pyc
+
 *.pkl
-*.log
-*.csv
 *.xlsx
-logs/
-estatisticas/
-*.csv
 *.db
 historico_megalodon.json
 estatisticas_*.json
