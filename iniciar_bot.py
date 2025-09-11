@@ -9,6 +9,8 @@ from bots.bot_price_action import iniciar_bot_price_action
 from bots.bot_reversao import iniciar_bot_reversao
 from bots.bot_mm import iniciar_bot_mm
 from bots.bot_ia import BotIA # Importação do Bot de IA
+from bots.bot_megalodon import BotMegalodon
+
 
 # Mapeia nome da estratégia para função de inicialização
 estrategias_disponiveis = {
@@ -17,7 +19,8 @@ estrategias_disponiveis = {
     "price_action": iniciar_bot_price_action,
     "reversao_tendencia": iniciar_bot_reversao,
     "mm": iniciar_bot_mm,
-    "ia": BotIA,  # Mapeia diretamente a classe, não a função de inicialização
+    "ia": BotIA, 
+    "megalodon": BotMegalodon,
 }
 
 def listar_configs():
@@ -27,9 +30,14 @@ def listar_configs():
 def extrair_nome_estrategia(nome_arquivo):
     return nome_arquivo.replace("config_", "").replace(".json", "")
 
+def carregar_config():
+    with open("config.json", "r") as f:
+        return json.load(f)
+
+
 def main():
     print("📂 Configurações disponíveis:")
-    arquivos = listar_a=os.listdir("configs")
+    arquivos = os.listdir("configs")
     arquivos_validos = [f for f in arquivos if extrair_nome_estrategia(f) in estrategias_disponiveis]
     
     if not arquivos_validos:
@@ -62,9 +70,9 @@ def main():
     iniciador_bot = estrategias_disponiveis.get(nome_estrategia)
     
     if iniciador_bot:
-        if isinstance(iniciador_bot, type): # Se for uma classe (como BotIA)
+        if isinstance(iniciador_bot, type):  # Se for uma classe (como BotIA ou BotMegalodon)
             bot = iniciador_bot(config, token, estatisticas_file)
-        else: # Se for uma função (como iniciar_bot_rsi)
+        else:  # Se for uma função (como iniciar_bot_rsi)
             bot = iniciador_bot(config, token, estatisticas_file)
             
         asyncio.run(bot.iniciar())
