@@ -45,6 +45,14 @@ ou manualmente
 pip install numpy pandas matplotlib tensorflow websockets
 
 ```
+### ⚠️ Requisitos adicionais para Windows
+
+Para rodar o TensorFlow corretamente no Windows, é necessário instalar o **Microsoft Visual C++ Redistributable**:
+
+🔗 [Download oficial](https://support.microsoft.com/help/2977003)
+
+Baixe e instale o arquivo `vc_redist.x64.exe` (para sistemas 64 bits).
+
 
 ## 🧠 Estratégias Implementadas
 
