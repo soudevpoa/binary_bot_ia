@@ -73,7 +73,18 @@ class Executor:
                     payout = contrato.get("payout", 0)
 
                     if expirado:
-                        resultado = "win" if status == "won" else "loss" if status == "lost" else "erro_status_indefinido"
+                        # Mapeia status da API para o formato interno
+                        mapa_status = {
+                            "won": "win",
+                            "lost": "loss",
+                            "sold": "sold",
+                            "expired": "expired",
+                            "cancelled": "cancelled"
+                        }
+
+                        # Preserva o status original se não estiver no mapa
+                        resultado = mapa_status.get(status, status if status else "status_indefinido")
+
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                         print(f"📌 Contrato encerrado | Resultado: {resultado.upper()} | Payout: {payout}")
@@ -85,6 +96,7 @@ class Executor:
                             "stake": stake,
                             "timestamp": timestamp
                         }
+
 
                     print(f"📊 Status atual do contrato: {status}")
                 else:

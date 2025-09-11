@@ -1,7 +1,7 @@
 {
   "token": "GT5nKSpPMDLIJIg",
   "volatility_index": "R_50",
-  "stake": 1.0,
+  "stake_base": 1.0,
   "mm_periodo_curto": 5,
   "mm_periodo_longo": 20,
   "meta_lucro_percentual": 0.10,
@@ -14,5 +14,28 @@
     { "inicio": "18:00", "fim": "20:00" } 
 ],
 "min_operacoes_para_analise": 10,
-"taxa_minima_acerto": 60
+"taxa_minima_acerto": 60,
+  "modo_operacao": "dinamico",
+
+  "max_niveis": 3,
+  "fator_multiplicador": 2.0,
+  "stake_max": null,
+
+  "fixo": {
+    "valor": 0.40
+  },
+
+  "soros": {
+    "max_niveis": 2,
+    "reinvestir": "lucro"
+  },
+
+  "dinamico": {
+    "limiar_volatilidade": 0.0005,
+    "baixo_volatilidade": "fixo",
+    "alto_volatilidade": "martingale",
+    "fixo_valor": 0.40,
+    "martingale_max_niveis": 2,
+    "martingale_fator": 1.8
+  }
 }

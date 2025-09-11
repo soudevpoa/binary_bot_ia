@@ -2,73 +2,47 @@ import json
 import os
 
 class ProbabilidadeEstatistica:
-    def __init__(self, filename="dados/estatisticas.json"):
-        self.filename = filename
-        self.historico = []
-        self.carregar_historico()
+    def __init__(self, nome_arquivo):
+        self.nome_arquivo = nome_arquivo
+        self.dados = self._carregar_dados()
 
-    def carregar_historico(self):
-        if os.path.exists(self.filename):
-            with open(self.filename, "r") as f:
-                try:
-                    self.historico = json.load(f)
-                    print(f"✅ Histórico de estatísticas carregado de {self.filename}")
-                except json.JSONDecodeError:
-                    print("⚠️ Erro ao carregar o arquivo de estatísticas. Iniciando um novo histórico.")
-                    self.historico = []
-    
-    def salvar_historico(self):
+    def _carregar_dados(self):
+        if os.path.exists(self.nome_arquivo):
+            try:
+                with open(self.nome_arquivo, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                return {}
+        return {}
+
+    def _salvar_dados(self):
         try:
-            with open(self.filename, "w") as f:
-                json.dump(self.historico, f, indent=2)
-            print(f"💾 Histórico de estatísticas salvo em {self.filename}")
-        except Exception as e:
-            print(f"❌ Erro ao salvar o histórico de estatísticas: {e}")
+            with open(self.nome_arquivo, 'w') as f:
+                json.dump(self.dados, f, indent=4)
+        except IOError as e:
+            print(f"Erro ao salvar o arquivo de estatísticas: {e}")
 
-    def registrar_operacao(self, tipo, resultado, padrao):
-        self.historico.append({
-            "tipo": tipo,
-            "resultado": resultado,
-            "padrao": padrao
-        })
-        self.salvar_historico() # Salva a cada nova operação
-
-    def calcular_taxa_acerto(self, padrao=None):
-        if not self.historico:
-            return 0.0
-
-        filtrado = self.historico if padrao is None else [
-            h for h in self.historico if h["padrao"] == padrao
-        ]
-
-        if not filtrado:
-            return 0.0
-
-        acertos = sum(1 for h in filtrado if h["resultado"] == "win")
-        taxa = acertos / len(filtrado)
-        return round(taxa * 100, 2)
-
-    def get_total_operacoes(self, padrao=None):
-        if padrao is None:
-            return len(self.historico)
+    def registrar_operacao(self, direcao, resultado, padrao):
+        if padrao not in self.dados:
+            self.dados[padrao] = {"win": 0, "loss": 0}
         
-        count = sum(1 for h in self.historico if h["padrao"] == padrao)
-        return count
+        if resultado == "win":
+            self.dados[padrao]["win"] += 1
+        elif resultado == "loss":
+            self.dados[padrao]["loss"] += 1
+        
+        self._salvar_dados() # Chama a função para salvar os dados
 
-    def padroes_mais_lucrativos(self, top_n=3):
-        padroes = {}
-        for h in self.historico:
-            padrao = h["padrao"]
-            if padrao not in padroes:
-                padroes[padrao] = {"total": 0, "wins": 0}
-            padroes[padrao]["total"] += 1
-            if h["resultado"] == "win":
-                padroes[padrao]["wins"] += 1
-
-        estatisticas = [
-            (padrao, round((dados["wins"] / dados["total"]) * 100, 2))
-            for padrao, dados in padroes.items()
-        ]
-
-        estatisticas.sort(key=lambda x: x[1], reverse=True)
-        return estatisticas[:top_n]
+    def calcular_taxa_acerto(self, padrao):
+        if padrao not in self.dados:
+            return 0
+        
+        wins = self.dados[padrao]["win"]
+        losses = self.dados[padrao]["loss"]
+        total = wins + losses
+        
+        if total == 0:
+            return 0
+        
+        taxa = (wins / total) * 100
+        return round(taxa, 2)

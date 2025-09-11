@@ -1,21 +1,45 @@
 {
-"volatility_index": "R_100",
-"mm_periodo_curto": 5,
-"mm_periodo_longo": 20,
-"rsi_period": 14,
-"rsi_upper": 65,
-"rsi_lower": 35,
-"stake": 0.40,
-"meta_lucro_percentual": 0.10,
-"stop_loss_percentual": 0.05,
-"max_operacoes": 200,
-"token": "GT5nKSpPMDLIJIg",
-"modo_simulacao": true,
-"usar_janela_horario": true,
-"janelas_horario": [
+  "volatility_index": "R_100",
+  "mm_periodo_curto": 5,
+  "mm_periodo_longo": 20,
+  "rsi_period": 14,
+  "rsi_upper": 65,
+  "rsi_lower": 35,
+  "stake_base": 0.40,
+  "meta_lucro_percentual": 0.10,
+  "stop_loss_percentual": 0.05,
+  "max_operacoes": 200,
+  "token": "GT5nKSpPMDLIJIg",
+  "modo_simulacao": false,
+  "usar_janela_horario": false,
+  "janelas_horario": [
     { "inicio": "09:00", "fim": "12:00" },
-    { "inicio": "15:00", "fim": "17:00" } 
-],
-"min_operacoes_para_analise": 10,
-"taxa_minima_acerto": 60
+    { "inicio": "15:00", "fim": "17:00" }
+  ],
+  "min_operacoes_para_analise": 10,
+  "taxa_minima_acerto": 60,
+
+  "modo_operacao": "dinamico",
+
+  "max_niveis": 3,
+  "fator_multiplicador": 2.0,
+  "stake_max": null,
+
+  "fixo": {
+    "valor": 0.40
+  },
+
+  "soros": {
+    "max_niveis": 2,
+    "reinvestir": "lucro"
+  },
+
+  "dinamico": {
+    "limiar_volatilidade": 0.0005,
+    "baixo_volatilidade": "fixo",
+    "alto_volatilidade": "martingale",
+    "fixo_valor": 0.40,
+    "martingale_max_niveis": 2,
+    "martingale_fator": 1.8
+  }
 }

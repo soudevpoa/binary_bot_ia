@@ -1,7 +1,8 @@
 from core.bot_base import BotBase
 from estrategias.mm_rsi import EstrategiaMMRSI
 
-def iniciar_bot_mm_rsi(config, token):
+
+def iniciar_bot_mm_rsi(config, token, estatisticas_file):
     estrategia = EstrategiaMMRSI(
         mm_curto=config["mm_periodo_curto"],
         mm_longo=config["mm_periodo_longo"],
@@ -9,5 +10,6 @@ def iniciar_bot_mm_rsi(config, token):
         rsi_upper=config["rsi_upper"],
         rsi_lower=config["rsi_lower"]
     )
-    bot = BotBase(config, token, estrategia)
+    bot = BotBase(config, token, estrategia, estatisticas_file)
+    
     return bot

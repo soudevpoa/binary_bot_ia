@@ -1,19 +1,42 @@
 {
 "volatility_index": "R_100",
-"stake": 0.40,
+"stake_base": 0.40,
 "meta_lucro_percentual": 0.10,
 "stop_loss_percentual": 0.05,
 "max_operacoes": 20,
 "token": "GT5nKSpPMDLIJIg",
-"modo_simulacao": false,
 "limite_vela_alta": 0.7,
 "limite_vela_baixa": 0.3,
 "minimo_corpo_percentual": 0.5,
-"usar_janela_horario": true,
+"modo_simulacao": false,
+"usar_janela_horario": false,
 "janelas_horario": [
     { "inicio": "12:00", "fim": "15:00" },
     { "inicio": "18:00", "fim": "20:00" } 
 ],
 "min_operacoes_para_analise": 10,
-"taxa_minima_acerto": 60
+"taxa_minima_acerto": 60,
+  "modo_operacao": "dinamico",
+
+  "max_niveis": 3,
+  "fator_multiplicador": 2.0,
+  "stake_max": null,
+
+  "fixo": {
+    "valor": 0.40
+  },
+
+  "soros": {
+    "max_niveis": 2,
+    "reinvestir": "lucro"
+  },
+
+  "dinamico": {
+    "limiar_volatilidade": 0.0005,
+    "baixo_volatilidade": "fixo",
+    "alto_volatilidade": "martingale",
+    "fixo_valor": 0.40,
+    "martingale_max_niveis": 2,
+    "martingale_fator": 1.8
+  }
 }
