@@ -2,43 +2,54 @@ import json
 import os
 
 class ProbabilidadeEstatistica:
-    def __init__(self, nome_arquivo):
-        self.nome_arquivo = nome_arquivo
-        self.dados = self._carregar_dados()
-
-    def _carregar_dados(self):
-        if os.path.exists(self.nome_arquivo):
+    def __init__(self, estatisticas_file):
+        
+        self.estatisticas_file = estatisticas_file
+        self.estatisticas = self.carregar_estatisticas()
+    
+    def carregar_estatisticas(self):
+        """Carrega as estatísticas do arquivo, ou retorna um dicionário vazio."""
+        
+        caminho_completo = os.path.join("estatisticas", self.estatisticas_file)
+        
+        if os.path.exists(caminho_completo):
             try:
-                with open(self.nome_arquivo, 'r') as f:
+                with open(caminho_completo, 'r') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
+                print(f"⚠️ Erro ao ler o arquivo de estatísticas {caminho_completo}. Criando novo.")
                 return {}
         return {}
 
-    def _salvar_dados(self):
+    def salvar_estatisticas(self):
+        """Salva as estatísticas atuais em um arquivo JSON."""
+        # Cria a pasta 'estatisticas' se ela não existir
+        os.makedirs("estatisticas", exist_ok=True)
+        caminho_completo = os.path.join("estatisticas", self.estatisticas_file)
+        
         try:
-            with open(self.nome_arquivo, 'w') as f:
-                json.dump(self.dados, f, indent=4)
+            with open(caminho_completo, "w") as f:
+                json.dump(self.estatisticas, f, indent=4)
+            print(f"✅ Estatísticas salvas em {caminho_completo}")
         except IOError as e:
-            print(f"Erro ao salvar o arquivo de estatísticas: {e}")
+            print(f"❌ Erro ao salvar o arquivo de estatísticas: {e}")
 
     def registrar_operacao(self, direcao, resultado, padrao):
-        if padrao not in self.dados:
-            self.dados[padrao] = {"win": 0, "loss": 0}
+        # AQUI ESTÁ A CORREÇÃO: Removemos a chamada para o método de salvar
+        if padrao not in self.estatisticas:
+            self.estatisticas[padrao] = {"wins": 0, "losses": 0}
         
         if resultado == "win":
-            self.dados[padrao]["win"] += 1
+            self.estatisticas[padrao]["wins"] += 1
         elif resultado == "loss":
-            self.dados[padrao]["loss"] += 1
-        
-        self._salvar_dados() # Chama a função para salvar os dados
-
+            self.estatisticas[padrao]["losses"] += 1
+    
     def calcular_taxa_acerto(self, padrao):
-        if padrao not in self.dados:
+        if padrao not in self.estatisticas:
             return 0
         
-        wins = self.dados[padrao]["win"]
-        losses = self.dados[padrao]["loss"]
+        wins = self.estatisticas[padrao].get("wins", 0)
+        losses = self.estatisticas[padrao].get("losses", 0)
         total = wins + losses
         
         if total == 0:

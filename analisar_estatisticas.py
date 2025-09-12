@@ -1,60 +1,64 @@
-import os
 import json
-from tabulate import tabulate
+import os
+import sys
 
-def analisar_estatisticas():
-    """Lê todos os arquivos de estatísticas e gera um resumo."""
+def carregar_estatisticas(nome_arquivo):
+    """
+    Carrega as estatísticas de um arquivo JSON.
+    """
+    caminho_completo = os.path.join("estatisticas", nome_arquivo)
     
-    print("📊 Analisando as estatísticas dos bots...")
-    
-    resultados_globais = []
-    
-    # Percorre todos os arquivos na pasta principal
-    for nome_arquivo in os.listdir("."):
-        if nome_arquivo.startswith("estatisticas_") and nome_arquivo.endswith(".json"):
-            try:
-                with open(nome_arquivo, "r") as f:
-                    dados = json.load(f)
-                    
-                    nome_bot = nome_arquivo.replace("estatisticas_", "").replace(".json", "")
-                    
-                    # Usa .get() para evitar o KeyError
-                    total_operacoes = dados.get("total_operacoes", 0)
-                    vitorias = dados.get("vitorias", 0)
-                    derrotas = dados.get("derrotas", 0)
-                    meta_batida = dados.get("meta_batida", False)
-                    lucro_total = dados.get("lucro_total", 0)
+    try:
+        with open(caminho_completo, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"⚠️ Erro: O arquivo '{caminho_completo}' não foi encontrado.")
+        return None
+    except json.JSONDecodeError:
+        print(f"⚠️ Erro: O arquivo '{caminho_completo}' não é um JSON válido.")
+        return None
 
-                    if not total_operacoes:
-                        taxa_acerto = 0
-                    else:
-                        taxa_acerto = (vitorias / total_operacoes) * 100
-                    
-                    # Formata os dados para exibição
-                    resultados_globais.append([
-                        nome_bot,
-                        total_operacoes,
-                        vitorias,
-                        derrotas,
-                        meta_batida,
-                        f"{taxa_acerto:.2f}%",
-                        f"R${lucro_total:.2f}"
-                    ])
-                    
-            except (IOError, json.JSONDecodeError) as e:
-                print(f"⚠️ Erro ao ler o arquivo {nome_arquivo}: {e}")
-                continue
-
-    if not resultados_globais:
-        print("❌ Nenhum arquivo de estatísticas encontrado. Execute os bots primeiro para gerar os arquivos.")
+def analisar_estatisticas(estatisticas):
+    """
+    Analisa e exibe as estatísticas para cada padrão.
+    """
+    if not estatisticas:
+        print("Nenhuma estatística para analisar.")
         return
 
-    # Imprime a tabela com os resultados
-    headers = ["Bot", "Total Ops", "Vitórias", "Derrotas", "Meta Batida?", "Taxa de Acerto", "Lucro Total"]
-    print("\n--- Resumo de Desempenho dos Bots ---")
-    print(tabulate(resultados_globais, headers=headers, tablefmt="fancy_grid"))
+    print("📊 Análise das Estatísticas de Padrões")
+    print("-" * 30)
     
-    print("\n✅ Análise concluída.")
+    for padrao, dados in estatisticas.items():
+        # Calcula o total de operações aqui
+        total_ops = dados.get("wins", 0) + dados.get("losses", 0)
+        
+        if total_ops > 0:
+            taxa_acerto = (dados.get('wins', 0) / total_ops) * 100
+            print(f"Padrão: {padrao}")
+            print(f"  Total de Ops: {total_ops}")
+            print(f"  Wins: {dados.get('wins', 0)}")
+            print(f"  Losses: {dados.get('losses', 0)}")
+            print(f"  Taxa de Acerto: {taxa_acerto:.2f}%")
+            print("-" * 30)
+        else:
+            print(f"Padrão: {padrao} - Nenhuma operação registrada.")
+            print("-" * 30)
+
+def main():
+    # Verifica se o nome do arquivo foi passado como argumento
+    if len(sys.argv) < 2:
+        print("⚠️ Erro: Por favor, forneça o nome do arquivo de estatísticas.")
+        print("Exemplo de uso: python analisar_estatisticas.py estatisticas_rsi_bollinger.json")
+        return
+
+    # AQUI ESTÁ A MÁGICA: Pega o nome do arquivo do primeiro argumento
+    nome_arquivo = sys.argv[1]
+
+    estatisticas = carregar_estatisticas(nome_arquivo)
+    
+    if estatisticas:
+        analisar_estatisticas(estatisticas)
 
 if __name__ == "__main__":
-    analisar_estatisticas()
+    main()

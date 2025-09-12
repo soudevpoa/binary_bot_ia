@@ -9,11 +9,11 @@
 "limite_vela_alta": 0.7,
 "limite_vela_baixa": 0.3,
 "minimo_corpo_percentual": 0.5,
-"modo_simulacao": false,
+"modo_simulacao": true,
 "usar_janela_horario": false,
 "janelas_horario": [
-    { "inicio": "12:00", "fim": "15:00" },
-    { "inicio": "18:00", "fim": "20:00" } 
+    { "inicio": "19:00", "fim": "21:00" }
+    
 ],
 "min_operacoes_para_analise": 10,
 "taxa_minima_acerto": 60,

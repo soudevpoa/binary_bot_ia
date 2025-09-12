@@ -12,8 +12,8 @@
   "stop_loss_percentual": 0.05,
   "max_operacoes": 200,
   "token": "GT5nKSpPMDLIJIg",
-  "modo_simulacao": false,
-  "usar_janela_horario": false,
+  "modo_simulacao": true,
+  "usar_janela_horario": true,
   "janelas_horario": [
     { "inicio": "12:00", "fim": "18:00" }
   ],

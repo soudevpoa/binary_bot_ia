@@ -9,7 +9,7 @@
 "max_operacoes": 20,
 "token": "GT5nKSpPMDLIJIg",
 "estatisticas_file": "estatisticas/reversao.json",
-"modo_simulacao": false,
+"modo_simulacao": true,
 "usar_janela_horario": false,
 "janelas_horario": [
     { "inicio": "12:00", "fim": "15:00" },

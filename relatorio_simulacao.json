@@ -2,141 +2,141 @@
     {
         "op": 1,
         "resultado": "loss",
-        "stake": 0.35,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": -0.35
+        "saldo": -0.4
     },
     {
         "op": 2,
         "resultado": "loss",
-        "stake": 0.7,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": -1.05
+        "saldo": -0.8
     },
     {
         "op": 3,
         "resultado": "win",
-        "stake": 1.4,
-        "payout": 2.454382577422671,
-        "saldo": 1.4
+        "stake": 0.4,
+        "payout": 0.7092376409967028,
+        "saldo": -0.09
     },
     {
         "op": 4,
-        "resultado": "win",
-        "stake": 0.35,
-        "payout": 0.6787439343536349,
-        "saldo": 2.08
+        "resultado": "loss",
+        "stake": 0.4,
+        "payout": 0.0,
+        "saldo": -0.49
     },
     {
         "op": 5,
-        "resultado": "win",
-        "stake": 0.35,
-        "payout": 0.6500530055000749,
-        "saldo": 2.73
+        "resultado": "loss",
+        "stake": 0.4,
+        "payout": 0.0,
+        "saldo": -0.89
     },
     {
         "op": 6,
         "resultado": "win",
-        "stake": 0.35,
-        "payout": 0.6072450387253823,
-        "saldo": 3.34
+        "stake": 0.4,
+        "payout": 0.680559940818647,
+        "saldo": -0.21
     },
     {
         "op": 7,
-        "resultado": "loss",
-        "stake": 0.35,
-        "payout": 0.0,
-        "saldo": 2.99
+        "resultado": "win",
+        "stake": 0.4,
+        "payout": 0.6891562578597562,
+        "saldo": 0.48
     },
     {
         "op": 8,
         "resultado": "win",
-        "stake": 0.7,
-        "payout": 1.3599581507186616,
-        "saldo": 4.35
+        "stake": 0.4,
+        "payout": 0.7203035517707606,
+        "saldo": 1.2
     },
     {
         "op": 9,
         "resultado": "loss",
-        "stake": 0.35,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": 4.0
+        "saldo": 0.8
     },
     {
         "op": 10,
         "resultado": "loss",
-        "stake": 0.7,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": 3.3
+        "saldo": 0.4
     },
     {
         "op": 11,
         "resultado": "win",
-        "stake": 1.4,
-        "payout": 2.5323210863019465,
-        "saldo": 5.83
+        "stake": 0.4,
+        "payout": 0.7315496456035666,
+        "saldo": 1.13
     },
     {
         "op": 12,
-        "resultado": "win",
-        "stake": 0.35,
-        "payout": 0.6542530492435811,
-        "saldo": 6.49
+        "resultado": "loss",
+        "stake": 0.4,
+        "payout": 0.0,
+        "saldo": 0.73
     },
     {
         "op": 13,
-        "resultado": "loss",
-        "stake": 0.35,
-        "payout": 0.0,
-        "saldo": 6.14
+        "resultado": "win",
+        "stake": 0.4,
+        "payout": 0.6935922457806842,
+        "saldo": 1.42
     },
     {
         "op": 14,
-        "resultado": "win",
-        "stake": 0.7,
-        "payout": 1.2976858462631142,
-        "saldo": 7.43
+        "resultado": "loss",
+        "stake": 0.4,
+        "payout": 0.0,
+        "saldo": 1.02
     },
     {
         "op": 15,
-        "resultado": "loss",
-        "stake": 0.35,
-        "payout": 0.0,
-        "saldo": 7.08
+        "resultado": "win",
+        "stake": 0.4,
+        "payout": 0.7654037814609593,
+        "saldo": 1.79
     },
     {
         "op": 16,
         "resultado": "win",
-        "stake": 0.7,
-        "payout": 1.2980030774039155,
-        "saldo": 8.38
+        "stake": 0.4,
+        "payout": 0.7134116656235281,
+        "saldo": 2.5
     },
     {
         "op": 17,
         "resultado": "loss",
-        "stake": 0.35,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": 8.03
+        "saldo": 2.1
     },
     {
         "op": 18,
-        "resultado": "loss",
-        "stake": 0.7,
-        "payout": 0.0,
-        "saldo": 7.33
+        "resultado": "win",
+        "stake": 0.4,
+        "payout": 0.7683600204379393,
+        "saldo": 2.87
     },
     {
         "op": 19,
         "resultado": "loss",
-        "stake": 1.4,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": 5.93
+        "saldo": 2.47
     },
     {
         "op": 20,
         "resultado": "loss",
-        "stake": 2.8,
+        "stake": 0.4,
         "payout": 0.0,
-        "saldo": 3.13
+        "saldo": 2.07
     }
 ]
