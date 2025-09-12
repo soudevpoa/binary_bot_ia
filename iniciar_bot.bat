@@ -6,19 +6,19 @@ CALL .venv\Scripts\activate
 
 REM Menu de seleção
 echo ================================
-echo 🧠 Iniciar Bot Inteligente
+echo Iniciar Bot Inteligente
 echo ================================
 echo [1] Bot Megalodon
 echo [2] Bot IA
 echo [3] Painel Streamlit
 echo [4] Bot MM + RSI
-echo [5] Bot Média Móvel
+echo [5] Bot Media Movel
 echo [6] Bot Price Action
-echo [7] Bot Reversão de Tendência
+echo [7] Bot Reversao de Tendencia
 echo [8] Bot RSI + Bollinger
 echo [0] Cancelar
 echo ================================
-set /p escolha=Escolha uma opção: 
+set /p escolha=Escolha uma opcao: 
 
 IF "%escolha%"=="1" (
     echo 🚀 Iniciando Bot Megalodon...
