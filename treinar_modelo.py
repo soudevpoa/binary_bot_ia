@@ -52,7 +52,7 @@ async def main():
     }
 
     print("📦 Coletando dados do mercado...")
-    prices = await coletar_dados(config["token"], config["volatility_index"], num_ticks=50)
+    prices = await coletar_dados(config["token"], config["volatility_index"], num_ticks=600)
 
 
     print("🧪 Preparando dataset...")

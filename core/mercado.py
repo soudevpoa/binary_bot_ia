@@ -2,12 +2,14 @@ import json
 import websockets
 import ssl
 import asyncio
+from collections import deque
 
 class Mercado:
     def __init__(self, url, token, volatility_index):
         self.url = url
         self.token = token
         self.volatility_index = volatility_index
+        self.precos = deque(maxlen=200)
 
 
     async def conectar(self):
@@ -47,5 +49,11 @@ class Mercado:
     def processar_tick(self, msg):
         data = json.loads(msg)
         if "tick" in data:
-            return {"price": float(data["tick"]["quote"])}
+            preco = float(data["tick"]["quote"])
+            self.precos.append(preco)  # ✅ Preço é armazenado automaticamente
+            return {"price": preco}
         return None
+
+    def get_precos(self):
+        return list(self.precos)
+        
