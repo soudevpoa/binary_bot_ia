@@ -13,6 +13,11 @@ from core.desempenho import PainelDesempenho
 from core.martingale_inteligente import MartingaleInteligente
 from core.probabilidade_estatistica import ProbabilidadeEstatistica
 from indicadores.indicadores import calcular_volatilidade
+from core.gestores.soros import Soros
+from core.gestores.stake_fixa import StakeFixa
+from core.gestores.martingale_inteligente import MartingaleInteligente
+from core.gestores.martingale_tradicional import MartingaleTradicional
+
 
 # Funções auxiliares
 def validar_resposta_contrato(resposta):
@@ -71,6 +76,7 @@ class BotBase:
         self.token = token
         self.estrategia = estrategia
         self.prices = []
+        self.sequencia_resultados = []
         self.loss_count = 0
         self.profit_count = 0
         self.mercado = None
@@ -78,41 +84,56 @@ class BotBase:
         self.logger = Logger()
         self.saldo = None
         self.painel = None
+        self.loss_virtual_count = 0
         self.estatistica = ProbabilidadeEstatistica(estatisticas_file)
         self.gestor = self._criar_gestor()
 
     def _criar_gestor(self):
-        modo = self.config.get("modo_operacao", "martingale")
-        stake_base = float(self.config.get("stake_base", 1.0))
-        stake_max = self.config.get("stake_max")
+        tipo_gestor = self.config.get("gestor", "stake_fixa")
 
-        if modo == "fixo":
-            fixo_cfg = self.config.get("fixo", {})
-            return StakeFixa(fixo_cfg.get("valor", stake_base))
-
-        if modo == "soros":
-            soros_cfg = self.config.get("soros", {})
+        if tipo_gestor == "soros":
+            from core.gestores.soros import Soros
             return Soros(
-                stake_base=stake_base,
-                max_niveis=soros_cfg.get("max_niveis", 2),
-                reinvestir=soros_cfg.get("reinvestir", "lucro"),
-                stake_max=stake_max
+                stake_base=self.config.get("stake_base", 1),
+                max_etapas=self.config.get("soros_max_etapas", 2),
+                stake_max=self.config.get("soros_stake_max"),
+                reinvestir=self.config.get("soros_reinvestir", "lucro")
             )
 
-        if modo == "dinamico":
-            # Guarda configurações para decidir no momento de operar
-            self._dinamico_cfg = self.config.get("dinamico", {})
-            # default inicial
-            return StakeFixa(self._dinamico_cfg.get("fixo_valor", stake_base))
+        elif tipo_gestor == "martingale":
+            tipo_martingale = self.config.get("tipo_martingale", "tradicional")
 
-        # default: martingale
-        return MartingaleInteligente(
-            stake_base=stake_base,
-            max_niveis=self.config.get("max_niveis", 3),
-            fator_multiplicador=self.config.get("fator_multiplicador", 2.0),
-            stake_max=stake_max
-        )
-    
+            if tipo_martingale == "inteligente":
+                from core.gestores.martingale_inteligente import MartingaleInteligente
+                return MartingaleInteligente(
+                    stake_base=self.config.get("stake_base", 1),
+                    fator=self.config.get("martingale_fator", 2),
+                    limite=self.config.get("martingale_limite", 3)
+                )
+            else:
+                from core.gestores.martingale_tradicional import MartingaleTradicional
+                return MartingaleTradicional(
+                    stake_base=self.config.get("stake_base", 1),
+                    fator=self.config.get("martingale_fator", 2),
+                    limite=self.config.get("martingale_limite", 3)
+                )
+
+        else:
+            from core.gestores.stake_fixa import StakeFixa
+            return StakeFixa(valor=self.config.get("stake_base", 1))
+
+
+    def registrar_resultado_virtual(self, resultado):
+        if resultado == "loss":
+            self.loss_virtual_count += 1
+        else:
+            self.loss_virtual_count = 0
+
+        if self.loss_virtual_count >= self.config.get("loss_virtual_limite", 4):
+            self.loss_virtual_count = 0
+            return True  # sinaliza que deve entrar na real
+        return False
+
     # --- INÍCIO DA FUNÇÃO INICIAR COM AS CORREÇÕES E AJUSTES ---
     async def iniciar(self):
         # AQUI FOI INSERIDO O BLOCO TRY...FINALLY PRINCIPAL.
@@ -236,16 +257,40 @@ class BotBase:
 
                 try:
                     if self.config.get("modo_simulacao", False):
-                        resultado = random.choice(["win", "loss"])
-                        payout = stake * random.uniform(1.7, 1.95) if resultado == "win" else 0.0
-                        resposta = {
-                            "resultado": resultado,
-                            "payout": payout,
-                            "stake": stake,
-                            "simulacao": True,
-                            "direcao": tipo,  # Adiciona a direção para as estatísticas
-                            "padrao": padrao # Adiciona o padrão para as estatísticas
-                        }
+                        if self.config.get("usar_loss_virtual", False):
+                            resultado_simulado = random.choice(["win", "loss"])
+                            entrou_na_real = self.registrar_resultado_virtual(resultado_simulado)
+
+                            if entrou_na_real:
+                                print("🎯 Limite de Loss virtual atingido. Executando operação real simulada.")
+                                resultado = random.choice(["win", "loss"])
+                                payout = stake * random.uniform(1.7, 1.95) if resultado == "win" else 0.0
+                            else:
+                                print(f"👻 Loss virtual registrado. Total: {self.loss_virtual_count}")
+                                resultado = resultado_simulado
+                                payout = stake * random.uniform(1.7, 1.95) if resultado == "win" else 0.0
+
+                            resposta = {
+                                "resultado": resultado,
+                                "payout": payout,
+                                "stake": stake,
+                                "simulacao": True,
+                                "direcao": tipo,
+                                "padrao": padrao
+                            }
+
+                        else:
+                            resultado = random.choice(["win", "loss"])
+                            payout = stake * random.uniform(1.7, 1.95) if resultado == "win" else 0.0
+                            resposta = {
+                                "resultado": resultado,
+                                "payout": payout,
+                                "stake": stake,
+                                "simulacao": True,
+                                "direcao": tipo,
+                                "padrao": padrao
+                            }
+
                     else:
                         resposta = await self.executor.enviar_ordem(tipo, stake)
                         valido, motivo = validar_resposta_contrato(resposta)
@@ -253,6 +298,7 @@ class BotBase:
                             print(f"⚠️ Resposta inválida: {motivo}")
                             continue
                         resposta["simulacao"] = False
+
 
                     # ATENÇÃO: UNIFICAMOS O CÓDIGO DE ESTATÍSTICAS AQUI
                     resultado = resposta["resultado"]
@@ -267,6 +313,16 @@ class BotBase:
                             stake_executada=stake_executada
                         )
                         self.estatistica.registrar_operacao(direcao, resultado, padrao)
+                    # 📊 Log de stake atual
+                    etapa = getattr(self.gestor, "contador", getattr(self.gestor, "etapa", 1))
+                    print(f"📊 Stake atual: {stake:.2f} | Gestor: {self.config.get('gestor')} | Etapa: {etapa}")
+
+                    # 📉 Log de sequência de resultados
+                    self.sequencia_resultados.append(resultado)
+                    if len(self.sequencia_resultados) > 5:
+                        self.sequencia_resultados.pop(0)
+                    print(f"📉 Últimos resultados: {' → '.join(self.sequencia_resultados)}")
+    
 
                     taxa = self.estatistica.calcular_taxa_acerto(padrao)
                     print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")

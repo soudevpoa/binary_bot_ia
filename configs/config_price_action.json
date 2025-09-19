@@ -1,5 +1,5 @@
 {
-"volatility_index": "R_100",
+"volatility_index": "R_75",
 "stake_base": 0.40,
 "meta_lucro_percentual": 0.10,
 "stop_loss_percentual": 0.05,
@@ -10,7 +10,7 @@
 "limite_vela_baixa": 0.3,
 "minimo_corpo_percentual": 0.5,
 "modo_simulacao": true,
-"usar_janela_horario": false,
+"usar_janela_horario": true,
 "janelas_horario": [
     { "inicio": "19:00", "fim": "21:00" }
     

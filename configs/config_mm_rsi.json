@@ -15,7 +15,7 @@
   "modo_simulacao": true,
   "usar_janela_horario": true,
   "janelas_horario": [
-    { "inicio": "12:00", "fim": "18:00" }
+    { "inicio": "13:00", "fim": "16:00" }
   ],
   "min_operacoes_para_analise": 10,
   "taxa_minima_acerto": 60,

@@ -10,10 +10,10 @@
 "token": "GT5nKSpPMDLIJIg",
 "estatisticas_file": "estatisticas/reversao.json",
 "modo_simulacao": true,
-"usar_janela_horario": false,
+"usar_janela_horario": true,
 "janelas_horario": [
-    { "inicio": "12:00", "fim": "15:00" },
-    { "inicio": "18:00", "fim": "20:00" } 
+    { "inicio": "17:00", "fim": "20:00" }
+    
 ],
 "min_operacoes_para_analise": 10,
 "taxa_minima_acerto": 60,
