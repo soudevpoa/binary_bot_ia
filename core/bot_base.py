@@ -136,6 +136,7 @@ class BotBase:
         # 📊 Log do estado atual
         print(f"🧪 Contador de Loss Virtual: {self.loss_virtual_count}/{self.config.get('limite_loss_virtual', 4)}")
 
+
         # 🎯 Verifica se atingiu o limite
         if self.loss_virtual_count >= self.config.get("limite_loss_virtual", 4):
             print("✅ Limite de Loss Virtual atingido — próxima operação será real.")

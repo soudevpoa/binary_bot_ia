@@ -2,7 +2,7 @@ import asyncio
 import json
 import numpy as np
 from datetime import datetime
-from indicadores.indicadores import calcular_rsi, calcular_mm, calcular_bb, calcular_volatilidade
+from indicadores.indicadores import calcular_rsi, calcular_mm, calcular_volatilidade
 from core.modelo_neural import ModeloNeural
 from core.bot_base import BotBase
 from sklearn.metrics import accuracy_score
@@ -96,6 +96,7 @@ class BotMegalodon(BotBase):
         estrategia = EstrategiaMegalodon(config)
         super().__init__(config, token, estrategia, estatisticas_file)
         self.modo_simulacao = config.get("modo_simulacao", True)
+        self.limite_loss_virtual = self.config.get("limite_loss_virtual", 4)
 
     async def iniciar(self):
         await super().iniciar()
@@ -116,6 +117,9 @@ class BotMegalodon(BotBase):
                     continue
 
                 prices = self.mercado.get_precos()
+                if not prices:
+                    continue
+
                 volatilidade = calcular_volatilidade(prices)
                 direcao, motivo = self.estrategia.decidir(
                     prices,
@@ -124,32 +128,41 @@ class BotMegalodon(BotBase):
                 )
 
                 if direcao:
-                    resultado = self.simular_operacao(direcao)
-                    self.atualizar_estatisticas(resultado)
+                    if self.loss_virtual_count >= self.limite_loss_virtual:
+                        print(f"✅ Limite de Loss Virtual atingido — próxima operação será real ({self.limite_loss_virtual}).")
+                        self.loss_virtual_count = 0
+                        # Aqui você pode implementar operação real futuramente
+                    else:
+                        resultado = self.simular_operacao(direcao)
+                        if resultado == "loss":
+                            self.loss_virtual_count += 1
+                        self.atualizar_estatisticas(resultado)
 
-                    # 🧾 Registro da operação
-                    operacao = {
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "direcao": direcao,
-                        "resultado": resultado,
-                        "stake": self.config.get("stake_base", 2.0),
-                        "saldo": self.saldo
-                    }
+                        print(f"🧪 Contador de Loss Virtual: {self.loss_virtual_count}/{self.limite_loss_virtual}")
 
-                    os.makedirs("painel", exist_ok=True)
+                        operacao = {
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "direcao": direcao,
+                            "resultado": resultado,
+                            "stake": self.config.get("stake_base", 2.0),
+                            "saldo": self.saldo
+                        }
 
-                    try:
-                        with open("painel/operacoes.json", "r") as f:
-                            historico = json.load(f)
-                    except:
-                        historico = []
+                        os.makedirs("painel", exist_ok=True)
 
-                    historico.append(operacao)
+                        try:
+                            with open("painel/operacoes.json", "r") as f:
+                                historico = json.load(f)
+                        except Exception as e:
+                            print(f"⚠️ Erro ao carregar histórico: {e}")
+                            historico = []
 
-                    with open("painel/operacoes.json", "w") as f:
-                        json.dump(historico, f, indent=4)
+                        historico.append(operacao)
 
-                    print(f"📌 Operação registrada: {operacao}")
+                        with open("painel/operacoes.json", "w") as f:
+                            json.dump(historico, f, indent=4)
+
+                        print(f"📌 Operação registrada: {operacao}")
 
             except Exception as e:
                 print(f"⚠️ Erro durante execução: {e}")
