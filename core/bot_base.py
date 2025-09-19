@@ -77,6 +77,9 @@ class BotBase:
         self.estrategia = estrategia
         self.prices = []
         self.sequencia_resultados = []
+        self.loss_virtual_ativa = config.get("usar_loss_virtual", False)
+        self.limite_loss_virtual = config.get("limite_loss_virtual", 4)
+        self.contador_loss_virtual = 0
         self.loss_count = 0
         self.profit_count = 0
         self.mercado = None
@@ -124,15 +127,27 @@ class BotBase:
 
 
     def registrar_resultado_virtual(self, resultado):
+        # 🧠 Atualiza contador de perdas simuladas
         if resultado == "loss":
             self.loss_virtual_count += 1
         else:
-            self.loss_virtual_count = 0
+            self.loss_virtual_count = 0  # Reinicia se for win (ou mantém, se quiser lógica diferente)
 
-        if self.loss_virtual_count >= self.config.get("loss_virtual_limite", 4):
-            self.loss_virtual_count = 0
-            return True  # sinaliza que deve entrar na real
+        # 📊 Log do estado atual
+        print(f"🧪 Contador de Loss Virtual: {self.loss_virtual_count}/{self.config.get('limite_loss_virtual', 4)}")
+
+        # 🎯 Verifica se atingiu o limite
+        if self.loss_virtual_count >= self.config.get("limite_loss_virtual", 4):
+            print("✅ Limite de Loss Virtual atingido — próxima operação será real.")
+            self.loss_virtual_count = 0  # Reseta o contador
+            return True  # Sinaliza que pode operar de verdade
+
+        # 👻 Ainda em modo de simulação
+        print("👻 Operação simulada — escudo de Loss Virtual ainda ativo.")
         return False
+
+
+
 
     # --- INÍCIO DA FUNÇÃO INICIAR COM AS CORREÇÕES E AJUSTES ---
     async def iniciar(self):
@@ -292,12 +307,27 @@ class BotBase:
                             }
 
                     else:
+                        #  Verifica se deve simular antes de operar
+                        if self.config.get("usar_loss_virtual", False):
+                            resultado_simulado = random.choice(["loss", "win"])
+                            entrou_na_real = self.registrar_resultado_virtual(resultado_simulado)
+
+                            print(f"🧪 Contador de Loss Virtual: {self.loss_virtual_count}/{self.config.get('limite_loss_virtual', 4)}")
+
+                            if not entrou_na_real:
+                                print("👻 Ainda em Loss Virtual — operação simulada, sem entrada real.")
+                                continue  # ⛔️ Pula a operação real até atingir o limite
+                            else:
+                                print("✅ Escudo de Loss Virtual desativado — operação real será executada.")
+
+                        #  Executa operação real
                         resposta = await self.executor.enviar_ordem(tipo, stake)
                         valido, motivo = validar_resposta_contrato(resposta)
                         if not valido:
                             print(f"⚠️ Resposta inválida: {motivo}")
                             continue
                         resposta["simulacao"] = False
+
 
 
                     # ATENÇÃO: UNIFICAMOS O CÓDIGO DE ESTATÍSTICAS AQUI

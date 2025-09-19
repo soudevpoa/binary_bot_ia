@@ -1,40 +1,82 @@
 import streamlit as st
-import joblib
-import numpy as np
-from keras.models import load_model
+import requests
+import os
+import json
+import pandas as pd
+from streamlit_autorefresh import st_autorefresh
 
+# 🧭 Configuração da página
 st.set_page_config(page_title="Painel Megalodon", layout="wide")
+st_autorefresh(interval=5000, limit=None, key="painel_refresh")
+st.title("🦈 Painel de Comando - Megalodon")
 
-st.title("🦈 Painel de IA - Megalodon")
+# 🧠 Controle do Bot via API
+st.subheader("🧠 Controle do Bot Megalodon")
+col1, col2 = st.columns(2)
 
-# 🔁 Carregar modelo e scaler
+with col1:
+    if st.button("▶️ Iniciar Bot"):
+        try:
+            r = requests.post("http://localhost:5000/iniciar")
+            st.success(r.json()["status"])
+        except Exception as e:
+            st.error(f"Erro ao iniciar bot: {e}")
+
+with col2:
+    if st.button("⏹️ Parar Bot"):
+        try:
+            r = requests.post("http://localhost:5000/parar")
+            st.warning(r.json()["status"])
+        except Exception as e:
+            st.error(f"Erro ao parar bot: {e}")
+
+# 📡 Consulta de status
+st.subheader("📡 Status do Bot")
+status = None  # Inicializa a variável
+
 try:
-    model = load_model("modelo_megalodon.h5")
-    scaler = joblib.load("scaler_megalodon.pkl")
-    st.success("✅ Modelo e scaler carregados com sucesso.")
+    status = requests.get("http://localhost:5000/status").json()
+    st.metric("Loss Virtual", f"{status['loss_virtual_count']}/{status['limite_loss_virtual']}")
+    st.metric("Stake Base", f"{status['stake_base']}")
+    st.metric("Bot Ativo", "✅" if status["ativo"] else "⛔️")
 except Exception as e:
-    st.error(f"❌ Erro ao carregar IA: {e}")
-    st.stop()
+    st.error(f"Erro ao consultar status: {e}")
 
-# 📊 Simular entrada de dados
-st.subheader("📥 Simulação de entrada")
-rsi = st.slider("RSI", 0.0, 100.0, 50.0)
-mm_curta = st.number_input("Média Móvel Curta", value=1130.0)
-mm_longa = st.number_input("Média Móvel Longa", value=1131.0)
-volatilidade = st.slider("Volatilidade", 0.0, 1.0, 0.5)
+# ⚙️ Atualização de parâmetros
+st.subheader("⚙️ Atualizar Configurações")
 
-features = np.array([[rsi, mm_curta, mm_longa, volatilidade]])
-features_scaled = scaler.transform(features)
-prob = model.predict(features_scaled, verbose=0)[0][0]
+if status:
+    novo_stake = st.number_input("Novo Stake Base", value=status["stake_base"])
+    novo_limite = st.slider("Novo Limite de Loss Virtual", 1, 10, value=status["limite_loss_virtual"])
 
-# 🎯 Resultado da previsão
-st.subheader("🎯 Previsão da IA")
-if prob > 0.5:
-    st.metric("Direção prevista", "CALL", delta=f"{prob:.2%}")
+    if st.button("Salvar na API"):
+        try:
+            r = requests.post("http://localhost:5000/atualizar_config", json={
+                "stake_base": novo_stake,
+                "limite_loss_virtual": novo_limite
+            })
+            st.success(r.json()["status"])
+        except Exception as e:
+            st.error(f"Erro ao salvar configurações: {e}")
 else:
-    st.metric("Direção prevista", "PUT", delta=f"{(1 - prob):.2%}")
+    st.warning("⚠️ API não respondeu — configurações não disponíveis.")
 
-# 📈 Histórico e desempenho (placeholder)
-st.subheader("📈 Desempenho histórico")
-st.line_chart([prob, 1 - prob])  # Exemplo simples
+# 📜 Histórico de Operações
+st.subheader("📜 Histórico de Operações")
 
+operacoes_path = "painel/operacoes.json"
+if os.path.exists(operacoes_path):
+    try:
+        with open(operacoes_path) as f:
+            operacoes = json.load(f)
+        if operacoes:
+            df = pd.DataFrame(operacoes)
+            st.dataframe(df)
+            if "saldo" in df.columns:
+                st.line_chart(df["saldo"])
+        else:
+            st.info("ℹ️ Nenhuma operação registrada ainda.")
+    except Exception as e:
+        st.error(f"Erro ao carregar histórico: {e}")
+else:
+    st.warning("⚠️ Arquivo de operações não encontrado.")

@@ -6,9 +6,9 @@ from indicadores.indicadores import calcular_rsi, calcular_mm, calcular_bb, calc
 from core.modelo_neural import ModeloNeural
 from core.bot_base import BotBase
 from sklearn.metrics import accuracy_score
-
 import os
 
+# --- Estratégia Megalodon com IA ---
 class EstrategiaMegalodon:
     def __init__(self, config):
         self.config = config
@@ -20,8 +20,6 @@ class EstrategiaMegalodon:
             print("✅ Modelo e scaler carregados com sucesso.")
         else:
             print("⚠️ Arquivos de IA não encontrados. Execute o script de treino primeiro.")
-
-
 
     def _preparar_dados(self, prices):
         if len(prices) < self.config["mm_periodo_longo"]:
@@ -92,7 +90,6 @@ class EstrategiaMegalodon:
         else:
             print("❌ Dados insuficientes para treinamento.")
 
-
 # --- Bot Megalodon com integração à estratégia ---
 class BotMegalodon(BotBase):
     def __init__(self, config, token, estatisticas_file):
@@ -109,3 +106,51 @@ class BotMegalodon(BotBase):
                 num_ticks=100,
                 mercado=self.mercado
             )
+
+        print("🧠 Megalodon em modo simulação. Iniciando operações...")
+        while True:
+            try:
+                msg = await self.mercado.ws.recv()
+                tick = self.mercado.processar_tick(msg)
+                if not tick:
+                    continue
+
+                prices = self.mercado.get_precos()
+                volatilidade = calcular_volatilidade(prices)
+                direcao, motivo = self.estrategia.decidir(
+                    prices,
+                    volatilidade=volatilidade,
+                    limiar_volatilidade=self.config.get("limiar_volatilidade", 0.2)
+                )
+
+                if direcao:
+                    resultado = self.simular_operacao(direcao)
+                    self.atualizar_estatisticas(resultado)
+
+                    # 🧾 Registro da operação
+                    operacao = {
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "direcao": direcao,
+                        "resultado": resultado,
+                        "stake": self.config.get("stake_base", 2.0),
+                        "saldo": self.saldo
+                    }
+
+                    os.makedirs("painel", exist_ok=True)
+
+                    try:
+                        with open("painel/operacoes.json", "r") as f:
+                            historico = json.load(f)
+                    except:
+                        historico = []
+
+                    historico.append(operacao)
+
+                    with open("painel/operacoes.json", "w") as f:
+                        json.dump(historico, f, indent=4)
+
+                    print(f"📌 Operação registrada: {operacao}")
+
+            except Exception as e:
+                print(f"⚠️ Erro durante execução: {e}")
+                await asyncio.sleep(1)
