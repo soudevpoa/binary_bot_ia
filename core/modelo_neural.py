@@ -14,6 +14,14 @@ class ModeloNeural:
         ])
         self.model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
+    def salvar_scaler(self, file_path):
+        """Salva o scaler em um arquivo .pkl."""
+        joblib.dump(self.scaler, file_path)
+
+    def carregar_scaler(self, file_path):
+        """Carrega o scaler de um arquivo .pkl."""
+        self.scaler = joblib.load(file_path)
+        
     def treinar(self, X, y, epochs=50):
         
         X_scaled = self.scaler.fit_transform(X)
