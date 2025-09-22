@@ -8,20 +8,23 @@ from core.bot_base import BotBase
 from sklearn.metrics import accuracy_score
 import os
 
-# --- Estratégia Megalodon com IA ---
+# --- Estratégia Megalodon com IA (VERSÃO CORRIGIDA) ---
 class EstrategiaMegalodon:
     def __init__(self, config):
         self.config = config
         self.modelo = ModeloNeural()
+        self.ia_disponivel = False
 
         if os.path.exists("modelo_megalodon.h5") and os.path.exists("scaler_megalodon.pkl"):
             self.modelo.carregar_modelo("modelo_megalodon.h5")
             self.modelo.carregar_scaler("scaler_megalodon.pkl")
+            self.ia_disponivel = True
             print("✅ Modelo e scaler carregados com sucesso.")
         else:
-            print("⚠️ Arquivos de IA não encontrados. Execute o script de treino primeiro.")
+            print("⚠️ Arquivos de IA não encontrados. O bot usará apenas as regras de RSI/MM.")
 
     def _preparar_dados(self, prices):
+        """Prepara os dados de entrada para o modelo de IA."""
         if len(prices) < self.config["mm_periodo_longo"]:
             return None
 
@@ -30,26 +33,66 @@ class EstrategiaMegalodon:
         mm_longa = calcular_mm(prices, self.config["mm_periodo_longo"])
         vol = calcular_volatilidade(prices)
 
-        features = np.array([rsi, mm_curta, mm_longa, vol]).reshape(1, -1)
-        return features
+        # Retorna o array de features
+        return np.array([rsi, mm_curta, mm_longa, vol]).reshape(1, -1)
 
     def decidir(self, prices, volatilidade=None, limiar_volatilidade=None):
-        if volatilidade is not None and limiar_volatilidade is not None:
-            if volatilidade < limiar_volatilidade:
-                return None, "volatilidade_baixa"
+        """
+        Decide a direção da operação, usando a IA se disponível,
+        ou as regras clássicas como fallback.
+        """
+        # Checa se há dados suficientes para a decisão
+        if len(prices) < self.config["mm_periodo_longo"]:
+            return None, "dados_insuficientes"
 
+        # 1. Prepara os features para a IA
         features = self._preparar_dados(prices)
         if features is None:
             return None, "dados_insuficientes"
 
-        previsao = self.modelo.prever(features)
+        # 2. Usa a IA para prever a direção (o ponto chave!)
+        if self.ia_disponivel:
+            # A IA retorna a probabilidade para cada classe (0=Put, 1=Call)
+            predicao = self.modelo.prever(features)
 
-        if previsao == "up":
-            return "CALL", "megalodon_detectou_alta"
-        elif previsao == "down":
-            return "PUT", "megalodon_detectou_baixa"
+            # --- AJUSTE FEITO AQUI ---
+            # O bloco try-except lida com o erro caso a IA retorne um valor inválido.
+            try:
+                # Tenta converter a predição para float para comparação
+                probabilidade = float(predicao)
 
-        return None, "neutro"
+                if probabilidade > 0.5:
+                    direcao = "CALL"
+                else:
+                    direcao = "PUT"
+                    
+            except (ValueError, TypeError) as e:
+                # Se a conversão falhar, retorna None para ignorar a operação
+                print(f"⚠️ ERRO: O modelo de IA retornou um valor inválido! Detalhes: {e}")
+                print(f"Valor retornado: {predicao}")
+                return None, "predicao_invalida"
+
+            padrao = "IA"
+
+            # Exemplo de uso do limiar de volatilidade com a IA
+            if volatilidade < limiar_volatilidade:
+                return None, "volatilidade_baixa"
+
+            return direcao, padrao
+
+        # 3. Se a IA não estiver disponível, usa as regras clássicas
+        else:
+            rsi = calcular_rsi(prices)
+            mm_curta = calcular_mm(prices, self.config["mm_periodo_curto"])
+            mm_longa = calcular_mm(prices, self.config["mm_periodo_longo"])
+
+            # Regras de decisão "sniper" (RSI e MMs)
+            if rsi > 70 and mm_curta > mm_longa and volatilidade > limiar_volatilidade:
+                return "CALL", "sniper_alta"
+            elif rsi < 30 and mm_curta < mm_longa and volatilidade > limiar_volatilidade:
+                return "PUT", "sniper_baixa"
+            else:
+                return None, "condicoes_nao_alinhadas"
 
     async def treinar_com_historico_mercado(self, num_ticks, mercado):
         prices_data = []
@@ -90,80 +133,9 @@ class EstrategiaMegalodon:
         else:
             print("❌ Dados insuficientes para treinamento.")
 
-# --- Bot Megalodon com integração à estratégia ---
+
+# --- Bot Megalodon com integração à estratégia (VERSÃO CORRIGIDA) ---
 class BotMegalodon(BotBase):
     def __init__(self, config, token, estatisticas_file):
         estrategia = EstrategiaMegalodon(config)
         super().__init__(config, token, estrategia, estatisticas_file)
-        self.modo_simulacao = config.get("modo_simulacao", True)
-        self.limite_loss_virtual = self.config.get("limite_loss_virtual", 4)
-
-    async def iniciar(self):
-        await super().iniciar()
-
-        if self.modo_simulacao:
-            print("📚 Treinando rede neural com dados simulados...")
-            await self.estrategia.treinar_com_historico_mercado(
-                num_ticks=100,
-                mercado=self.mercado
-            )
-
-        print("🧠 Megalodon em modo simulação. Iniciando operações...")
-        while True:
-            try:
-                msg = await self.mercado.ws.recv()
-                tick = self.mercado.processar_tick(msg)
-                if not tick:
-                    continue
-
-                prices = self.mercado.get_precos()
-                if not prices:
-                    continue
-
-                volatilidade = calcular_volatilidade(prices)
-                direcao, motivo = self.estrategia.decidir(
-                    prices,
-                    volatilidade=volatilidade,
-                    limiar_volatilidade=self.config.get("limiar_volatilidade", 0.2)
-                )
-
-                if direcao:
-                    if self.loss_virtual_count >= self.limite_loss_virtual:
-                        print(f"✅ Limite de Loss Virtual atingido — próxima operação será real ({self.limite_loss_virtual}).")
-                        self.loss_virtual_count = 0
-                        # Aqui você pode implementar operação real futuramente
-                    else:
-                        resultado = self.simular_operacao(direcao)
-                        if resultado == "loss":
-                            self.loss_virtual_count += 1
-                        self.atualizar_estatisticas(resultado)
-
-                        print(f"🧪 Contador de Loss Virtual: {self.loss_virtual_count}/{self.limite_loss_virtual}")
-
-                        operacao = {
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "direcao": direcao,
-                            "resultado": resultado,
-                            "stake": self.config.get("stake_base", 2.0),
-                            "saldo": self.saldo
-                        }
-
-                        os.makedirs("painel", exist_ok=True)
-
-                        try:
-                            with open("painel/operacoes.json", "r") as f:
-                                historico = json.load(f)
-                        except Exception as e:
-                            print(f"⚠️ Erro ao carregar histórico: {e}")
-                            historico = []
-
-                        historico.append(operacao)
-
-                        with open("painel/operacoes.json", "w") as f:
-                            json.dump(historico, f, indent=4)
-
-                        print(f"📌 Operação registrada: {operacao}")
-
-            except Exception as e:
-                print(f"⚠️ Erro durante execução: {e}")
-                await asyncio.sleep(1)

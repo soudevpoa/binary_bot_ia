@@ -2,58 +2,48 @@ import json
 import os
 
 class ProbabilidadeEstatistica:
-    def __init__(self, estatisticas_file):
-        
-        self.estatisticas_file = estatisticas_file
+    def __init__(self, file_path):
+        # 🚨 AJUSTE 1: Removemos o valor fixo e usamos o caminho que é passado
+        self.file_path = file_path
         self.estatisticas = self.carregar_estatisticas()
-    
+        
     def carregar_estatisticas(self):
-        """Carrega as estatísticas do arquivo, ou retorna um dicionário vazio."""
-        
-        caminho_completo = os.path.join("estatisticas", self.estatisticas_file)
-        
-        if os.path.exists(caminho_completo):
-            try:
-                with open(caminho_completo, 'r') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                print(f"⚠️ Erro ao ler o arquivo de estatísticas {caminho_completo}. Criando novo.")
-                return {}
+        if os.path.exists(self.file_path):
+            with open(self.file_path, 'r') as f:
+                return json.load(f)
         return {}
-
-    def salvar_estatisticas(self):
-        """Salva as estatísticas atuais em um arquivo JSON."""
-        # Cria a pasta 'estatisticas' se ela não existir
-        os.makedirs("estatisticas", exist_ok=True)
-        caminho_completo = os.path.join("estatisticas", self.estatisticas_file)
         
-        try:
-            with open(caminho_completo, "w") as f:
-                json.dump(self.estatisticas, f, indent=4)
-            print(f"✅ Estatísticas salvas em {caminho_completo}")
-        except IOError as e:
-            print(f"❌ Erro ao salvar o arquivo de estatísticas: {e}")
-
-    def registrar_operacao(self, direcao, resultado, padrao):
-        # AQUI ESTÁ A CORREÇÃO: Removemos a chamada para o método de salvar
+    def salvar_estatisticas(self):
+        with open(self.file_path, 'w') as f:
+            json.dump(self.estatisticas, f, indent=4)
+            
+    # 🚨 AJUSTE 2: Adicionamos o argumento 'padrao' para registrar a origem da operação
+    def registrar_operacao(self, padrao, resultado):
         if padrao not in self.estatisticas:
-            self.estatisticas[padrao] = {"wins": 0, "losses": 0}
+            self.estatisticas[padrao] = {
+                "total": 0,
+                "win": 0,
+                "loss": 0,
+                "taxa_acerto": 0.0
+            }
+        
+        self.estatisticas[padrao]["total"] += 1
         
         if resultado == "win":
-            self.estatisticas[padrao]["wins"] += 1
+            self.estatisticas[padrao]["win"] += 1
         elif resultado == "loss":
-            self.estatisticas[padrao]["losses"] += 1
-    
+            self.estatisticas[padrao]["loss"] += 1
+            
+        # Recalcula a taxa de acerto para o padrão
+        if self.estatisticas[padrao]["total"] > 0:
+            self.estatisticas[padrao]["taxa_acerto"] = (
+                self.estatisticas[padrao]["win"] / self.estatisticas[padrao]["total"]
+            ) * 100
+        
+        self.salvar_estatisticas()
+        
     def calcular_taxa_acerto(self, padrao):
-        if padrao not in self.estatisticas:
-            return 0
-        
-        wins = self.estatisticas[padrao].get("wins", 0)
-        losses = self.estatisticas[padrao].get("losses", 0)
-        total = wins + losses
-        
-        if total == 0:
-            return 0
-        
-        taxa = (wins / total) * 100
-        return round(taxa, 2)
+        estatisticas_padrao = self.estatisticas.get(padrao, None)
+        if estatisticas_padrao and estatisticas_padrao["total"] > 0:
+            return estatisticas_padrao["taxa_acerto"]
+        return 0.0

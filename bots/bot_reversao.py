@@ -3,15 +3,14 @@ import json
 from core.bot_base import BotBase
 from estrategias.reversao_tendencia import EstrategiaReversaoTendencia
 
-async def iniciar_bot_reversao(config, token, estatisticas_file):
-    # A função agora recebe os argumentos diretamente do iniciar_bot.py.
-    # A lógica de carregar o arquivo de configuração foi removida daqui,
-    # pois agora ela está centralizada no iniciar_bot.py.
-
-    estrategia = EstrategiaReversaoTendencia(config["rsi_period"])
-    
-    # Instancia o bot de forma correta com os argumentos recebidos
-    bot = BotBase(config, token, estrategia, estatisticas_file)
-    
-    # Retorna a instância do bot, sem iniciá-lo
-    return bot
+# --- CLASSE DO BOT REAL ---
+# Ela herda de BotBase, que cuida da lógica de inicialização, estatísticas, etc.
+class BotReversao(BotBase):
+    def __init__(self, config, token, estatisticas_file):
+        # Instancia a sua estratégia de Reversão de Tendência.
+        # Note que ela precisa do parâmetro "rsi_period" da sua configuração.
+        estrategia = EstrategiaReversaoTendencia(config["rsi_period"])
+        
+        # Chama o construtor da classe-base (BotBase)
+        # e passa a estratégia para ela.
+        super().__init__(config, token, estrategia, estatisticas_file)

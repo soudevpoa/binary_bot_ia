@@ -1,9 +1,0 @@
-{
-  "timestamp": "10:02:05",
-  "preco": 1300.27,
-  "volatilidade": 0.65526,
-  "limiar": 0.64096,
-  "sinal": "CALL",
-  "padrao": "sobrevenda_confirmada",
-  "lucro": 0.0
-}

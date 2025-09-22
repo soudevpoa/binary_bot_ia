@@ -21,10 +21,24 @@ class ModeloNeural:
 
 
     def prever(self, features):
-        
+        """
+        Faz a predição e retorna a probabilidade numérica.
+        """
+        # Escala os dados de entrada
         features_scaled = self.scaler.transform(features)
+
+        # Faz a predição com o modelo e pega a probabilidade
+        # [0][0] porque o Keras retorna a predição como um array bidimensional
         prob = self.model.predict(features_scaled, verbose=0)[0][0]
-        return "up" if prob > 0.5 else "down"
+
+        # --- AJUSTE FEITO AQUI ---
+        # Agora a função retorna a probabilidade (um número float),
+        # em vez da classe (texto "up" ou "down").
+        # A decisão de "CALL" ou "PUT" será feita na estratégia (bot_megalodon.py)
+        # usando essa probabilidade.
+        return prob
+
+
 
     def prever_lote(self, X):
         X_scaled = self.scaler.transform(X)

@@ -1,77 +1,69 @@
-import os
-import json
 import asyncio
-from config_loader import carregar_config
-from core.bot_base import BotBase
-from bots.bot_mm_rsi import iniciar_bot_mm_rsi
-from bots.bot_rsi import iniciar_bot_rsi
-from bots.bot_price_action import iniciar_bot_price_action
-from bots.bot_reversao import iniciar_bot_reversao
-from bots.bot_mm import iniciar_bot_mm
-from bots.bot_ia import BotIA
+import json
+import os
 from bots.bot_megalodon import BotMegalodon
+from bots.bot_mm_rsi import BotMMRSI
+from bots.bot_mm import BotMM
+from bots.bot_price_action import BotPriceAction
+from bots.bot_reversao import BotReversao
+from bots.bot_rsi import BotRSI
 
-# Mapeia o nome da estratégia para a classe/função de inicialização
-estrategias_disponiveis = {
-    "mm_rsi": iniciar_bot_mm_rsi,
-    "rsi_bollinger": iniciar_bot_rsi,
-    "price_action": iniciar_bot_price_action,
-    "reversao_tendencia": iniciar_bot_reversao,
-    "mm": iniciar_bot_mm,
-    "ia": BotIA,
-    "megalodon": BotMegalodon,
+# Define uma lista de bots disponíveis.
+# Adicione novos bots aqui quando eles estiverem prontos.
+BOTS_DISPONIVEIS = {
+    "1": {"nome": "megalodon", "class": BotMegalodon},
+    "2": {"nome": "mm_rsi", "class": BotMMRSI},
+    "3": {"nome": "mm", "class": BotMM},
+    "4": {"nome": "price_action", "class": BotPriceAction},
+    "5": {"nome": "reversao", "class": BotReversao},
+    "6": {"nome": "rsi", "class": BotRSI},
+
 }
 
-def extrair_nome_estrategia(nome_arquivo):
-    return nome_arquivo.replace("config_", "").replace(".json", "")
+async def main():
+    print("Iniciando bot...")
 
-async def main_async():
-    print("📂 Configurações disponíveis:")
-    arquivos = os.listdir("configs")
-    arquivos_validos = [f for f in arquivos if extrair_nome_estrategia(f) in estrategias_disponiveis]
+    # Carrega o arquivo de configuração.
+    with open("configs/config_megalodon.json", "r") as f:
+        config = json.load(f)
     
-    if not arquivos_validos:
-        print("❌ Nenhuma configuração válida encontrada.")
-        print("Certifique-se de que os arquivos 'config_*.json' correspondem a uma estratégia mapeada.")
+    token = config.get("token")
+    if not token:
+        print("Erro: O token não foi encontrado no arquivo de configuração.")
         return
-
-    for i, nome in enumerate(arquivos_validos):
-        print(f"{i + 1}. {nome}")
-
-    escolha = input("\nDigite o número da estratégia que deseja iniciar: ")
-    try:
-        indice = int(escolha) - 1
-        nome_arquivo = arquivos_validos[indice]
-    except (ValueError, IndexError):
-        print("❌ Escolha inválida.")
-        return
-
-    nome_estrategia = extrair_nome_estrategia(nome_arquivo)
-    config_path = os.path.join("configs", nome_arquivo)
-    
-    config = carregar_config(config_path)
-    token = config["token"]
-    estatisticas_file = f"estatisticas_{nome_estrategia}.json"
-
-    print(f"\n🚀 Iniciando bot com estratégia: {nome_estrategia}")
-    
-    iniciador_bot = estrategias_disponiveis.get(nome_estrategia)
-    
-    bot = None
-    
-    if iniciador_bot:
-        if isinstance(iniciador_bot, type):  # Se for uma CLASSE
-            bot = iniciador_bot(config, token, estatisticas_file)
-        else:  # Se for uma FUNÇÃO
-            # Chama a função e passa os argumentos
-            bot = await iniciador_bot(config, token, estatisticas_file)
-            
-        if bot:
-            await bot.iniciar()
+        
+    # 🚨 NOVO CÓDIGO DO MENU DE SELEÇÃO
+    while True:
+        print("\n--- Selecione o bot para iniciar ---")
+        for numero, bot_info in BOTS_DISPONIVEIS.items():
+            print(f"[{numero}] {bot_info['nome'].capitalize()}")
+        
+        escolha = input("Digite o número do bot desejado: ")
+        
+        if escolha in BOTS_DISPONIVEIS:
+            bot_selecionado = BOTS_DISPONIVEIS[escolha]["nome"]
+            BotClass = BOTS_DISPONIVEIS[escolha]["class"]
+            break
         else:
-            print("❌ O bot não pôde ser inicializado. Verifique os erros anteriores.")
-    else:
-        print(f"❌ Estratégia '{nome_estrategia}' não está mapeada no dicionário.")
+            print("❌ Opção inválida. Por favor, digite o número correto.")
+
+    print(f"✅ Bot '{bot_selecionado.capitalize()}' selecionado.")
+    
+    # --- O RESTO DO CÓDIGO QUE JÁ AJUSTAMOS PERMANECE IGUAL ---
+    
+    # Cria a pasta de estatísticas se não existir.
+    pasta_estatisticas = "estatisticas"
+    if not os.path.exists(pasta_estatisticas):
+        os.makedirs(pasta_estatisticas)
+        print(f"✅ Pasta '{pasta_estatisticas}' criada com sucesso.")
+
+    # Constrói o caminho completo do arquivo de estatísticas
+    estatisticas_file_path = os.path.join(pasta_estatisticas, f"{bot_selecionado}_analise.json")
+    
+    # Inicia o bot
+    bot = BotClass(config, token, estatisticas_file_path)
+
+    await bot.iniciar()
 
 if __name__ == "__main__":
-    asyncio.run(main_async())
+    asyncio.run(main())
