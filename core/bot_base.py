@@ -2,53 +2,21 @@ import asyncio
 import json
 import statistics
 import random
-from datetime import datetime, time
+import time
+from datetime import datetime
 from core.gestores.stake_fixa import StakeFixa
 from core.gestores.soros import Soros
 from core.logger import Logger
 from core.mercado import Mercado
 from core.executor import Executor
 from core.saldo import Saldo
-from core.desempenho import PainelDesempenho
+from core.desempenho import PainelDesempenho, Desempenho
 from core.probabilidade_estatistica import ProbabilidadeEstatistica
 from indicadores.indicadores import calcular_volatilidade
 from core.gestores.martingale_inteligente import MartingaleInteligente
 from core.gestores.martingale_tradicional import MartingaleTradicional
 
-# Funções auxiliares
-def validar_resposta_contrato(resposta):
-    if not isinstance(resposta, dict):
-        return False, "resposta_invalida"
-    status = resposta.get("resultado")
-    payout = resposta.get("payout")
-    contrato_id = resposta.get("contract_id", None)
-    status_validos = ["win", "loss"]
-    status_ignorados = ["sold", "expired", "cancelled"]
-    if status in status_ignorados:
-        print(f"ℹ️ Contrato encerrado com status '{status}' — operação ignorada.")
-        return False, "status_ignorado"
-    if not isinstance(payout, (int, float)) or payout <= 0:
-        return False, "payout_invalido"
-    if contrato_id is None:
-        return False, "contrato_nao_executado"
-    if status.lower() in status_validos:
-        return True, status.lower()
-    elif status.lower() == "open":
-        print("⚠️ Contrato ainda aberto — aguardando encerramento.")
-        return False, "contrato_aberto"
-    else:
-        print(f"⚠️ Status desconhecido recebido: '{status}'")
-        return False, "status_desconhecido"
 
-async def reconectar_websocket(mercado, saldo, executor, token, index):
-    await mercado.conectar()
-    await mercado.autenticar(token)
-    await mercado.subscrever_ticks(index)
-    executor.ws = mercado.ws
-    saldo.ws = mercado.ws
-    print("🔄 Reconexão concluída. Retomando operações...")
-
-# --- CLASSE BOTBASE ---
 class BotBase:
     def __init__(self, config, token, estrategia, estatisticas_file):
         self.config = config
@@ -66,11 +34,13 @@ class BotBase:
         self.painel = None
         self.estatistica = ProbabilidadeEstatistica(estatisticas_file)
         self.gestor = self._criar_gestor()
+        self.desempenho = Desempenho(
+            config.get("stake_base"), "desempenho.json")
 
     def _criar_gestor(self):
         tipo_gestor = self.config.get("gestor", "stake_fixa")
         stake_base = float(self.config.get("stake_base", 1))
-        
+
         if tipo_gestor == "soros":
             return Soros(
                 stake_base=stake_base,
@@ -95,17 +65,54 @@ class BotBase:
         else:
             return StakeFixa(valor=stake_base)
 
+    async def _validar_resposta_contrato(self, resposta):
+        if not isinstance(resposta, dict):
+            return False, "resposta_invalida"
+        status = resposta.get("resultado")
+        payout = resposta.get("payout")
+        contrato_id = resposta.get("contract_id", None)
+        status_validos = ["win", "loss"]
+        status_ignorados = ["sold", "expired", "cancelled"]
+        if status in status_ignorados:
+            print(
+                f"ℹ️ Contrato encerrado com status '{status}' — operação ignorada.")
+            return False, "status_ignorado"
+        if not isinstance(payout, (int, float)) or payout <= 0:
+            return False, "payout_invalido"
+        if contrato_id is None:
+            return False, "contrato_nao_executado"
+        if status.lower() in status_validos:
+            return True, status.lower()
+        elif status.lower() == "open":
+            print("⚠️ Contrato ainda aberto — aguardando encerramento.")
+            return False, "contrato_aberto"
+        else:
+            print(f"⚠️ Status desconhecido recebido: '{status}'")
+            return False, "status_desconhecido"
+
     async def _executar_operacao(self, tipo, stake, padrao):
+        # ✅ CORREÇÃO: Lógica de Loss Virtual movida para o início do método
+        if self.loss_virtual_ativa:
+            resultado_simulado = random.choice(["win", "loss"])
+            if resultado_simulado == "loss":
+                self.contador_loss_virtual += 1
+            else:
+                self.contador_loss_virtual = 0
+
+            print(
+                f"🧪 Contador de Loss Virtual: {self.contador_loss_virtual}/{self.limite_loss_virtual}")
+
+            if self.contador_loss_virtual < self.limite_loss_virtual:
+                print("👻 Ainda em Loss Virtual — operação real será ignorada.")
+                await self._finalizar_operacao(resultado_simulado, stake, padrao)
+                return True
+
+        # ✅ CORREÇÃO: Lógica de simulação real ou ordem real
         if self.config.get("modo_simulacao", False):
             resultado = random.choice(["win", "loss"])
-            payout = stake * random.uniform(1.7, 1.95) if resultado == "win" else 0.0
-            if self.loss_virtual_ativa:
-                if resultado == "loss":
-                    self.contador_loss_virtual += 1
-                else:
-                    self.contador_loss_virtual = 0
-                print(f"🧪 Contador de Loss Virtual: {self.contador_loss_virtual}/{self.limite_loss_virtual}")
-            return {
+            payout = stake * \
+                random.uniform(1.7, 1.95) if resultado == "win" else 0.0
+            resposta = {
                 "resultado": resultado,
                 "payout": payout,
                 "stake": stake,
@@ -114,61 +121,143 @@ class BotBase:
                 "padrao": padrao
             }
         else:
-            if self.loss_virtual_ativa:
-                resultado_simulado = random.choice(["win", "loss"])
-                if resultado_simulado == "loss":
-                    self.contador_loss_virtual += 1
-                else:
-                    self.contador_loss_virtual = 0
-                print(f"🧪 Contador de Loss Virtual: {self.contador_loss_virtual}/{self.limite_loss_virtual}")
-                if self.contador_loss_virtual < self.limite_loss_virtual:
-                    print("👻 Ainda em Loss Virtual — operação real será ignorada.")
-                    return None
-            print("✅ Escudo de Loss Virtual desativado — operação real será executada.")
+            print("⚡ Escudo de Loss Virtual desativado — operação real será executada.")
             resposta = await self.executor.enviar_ordem(tipo, stake)
-            valido, motivo = validar_resposta_contrato(resposta)
+            valido, motivo = await self._validar_resposta_contrato(resposta)
+
+            # ✅ CORREÇÃO: Se a resposta não for válida, imprime o aviso e retorna False para continuar a operação.
             if not valido:
-                raise Exception(f"Resposta inválida da API: {motivo}")
-            resposta["simulacao"] = False
-            return resposta
+                print(f"⚠️ AVISO: Operação ignorada devido a '{motivo}'.")
+                return False
+
+        # ✅ CORREÇÃO: Chama o método para finalizar a operação, agora que tudo foi validado
+        await self._finalizar_operacao(resposta["resultado"], stake, padrao)
+
+        return True
+
+    async def _finalizar_operacao(self, resultado, stake, padrao):
+        """Finaliza a operação, registra o resultado e atualiza as estatísticas."""
+        self.desempenho.registrar_resultado(resultado, stake)
+        self.gestor.registrar_resultado(resultado)
+
+        if padrao:
+            self.estatistica.registrar_operacao(padrao, resultado)
+
+        print(
+            f"💰 Operação finalizada! Resultado: {resultado.upper()} | Padrão: {padrao} | Stake: {stake:.2f}")
+
+        # ✅ ADIÇÃO: Lógica de log e painel movida para cá
+        self.sequencia_resultados.append(resultado)
+        if len(self.sequencia_resultados) > 5:
+            self.sequencia_resultados.pop(0)
+
+        etapa = getattr(self.gestor, "contador",
+                        getattr(self.gestor, "etapa", 1))
+        print(f"📊 Gestor: {self.config.get('gestor')} | Etapa: {etapa}")
+        print(f"📉 Últimos resultados: {' → '.join(self.sequencia_resultados)}")
+        if padrao:
+            taxa = self.estatistica.calcular_taxa_acerto(padrao)
+            print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
+
+    async def _processar_tick(self, data):
+        """Processa um tick e decide se deve operar."""
+        price = data["price"]
+        self.prices.append(price)
+        if len(self.prices) > 60:
+            self.prices.pop(0)
+
+        volatilidade = calcular_volatilidade(self.prices)
+        limiar_volatilidade = float(
+            self.config.get("limiar_volatilidade", 0.0005))
+        decisao = self.estrategia.decidir(
+            self.prices, volatilidade, limiar_volatilidade)
+
+        if not isinstance(decisao, (list, tuple)):
+            print("⚠️ Estratégia retornou um valor inesperado:", decisao)
+            return
+
+        tipo = decisao[0] if len(decisao) > 0 else None
+        padrao = decisao[-1] if len(decisao) > 0 else None
+
+        if tipo is None:
+            return
+
+        stake = self.gestor.get_stake()
+        print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
+
+        try:
+            # ✅ CORREÇÃO: Apenas chama a execução, sem a lógica repetida
+            await self._executar_operacao(tipo, stake, padrao)
+        except Exception as e:
+            print(f"🔌 Falha na execução da ordem ({e}).")
+            time.sleep(5)
+            await self._reconectar_websocket()
+
+    async def _reconectar_websocket(self):
+        print("🔄 Reconectando...")
+
+        # Colocando o código de reconexão dentro de um bloco try
+        try:
+            await asyncio.sleep(5)
+            await self.mercado.conectar()
+            await self.mercado.autenticar(self.token)
+            await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
+
+            if self.executor:
+                self.executor.ws = self.mercado.ws
+            if self.saldo:
+                self.saldo.ws = self.mercado.ws
+
+            print("🔄 Reconexão concluída. Retomando operações...")
+
+        except Exception as e:
+            print(
+                f"⚠️ Falha na reconexão: {e}. Tentando novamente em 15 segundos...")
+            await asyncio.sleep(15)
+            await self._reconectar_websocket()  # Tenta reconectar novamente
 
     async def iniciar(self):
         try:
             self.mercado = Mercado(
                 "wss://ws.derivws.com/websockets/v3?app_id=1089",
                 self.token,
-                self.config["volatility_index"]
+                self.config.get("volatility_index")
             )
             await self.mercado.conectar()
             if not await self.mercado.autenticar(self.token):
                 return
-            await self.mercado.subscrever_ticks(self.config["volatility_index"])
+            await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
             asyncio.create_task(self.mercado.manter_conexao())
 
-            # 🚨 CORREÇÃO PRINCIPAL: Conversão do stake_base para float aqui
             self.executor = Executor(
                 self.mercado.ws,
-                self.config["volatility_index"],
-                float(self.config["stake_base"])
+                self.config.get("volatility_index"),
+                float(self.config.get("stake_base"))
             )
             self.saldo = Saldo(self.mercado.ws)
             saldo_inicial = await self.saldo.consultar()
             self.painel = PainelDesempenho(saldo_inicial)
-            print(f"🤖 Bot iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
+
+            print(
+                f"🤖 Bot iniciado para {self.config.get('volatility_index')} | Saldo inicial: {saldo_inicial:.2f}")
             if self.config.get("modo_simulacao", False):
-                print("🚀 BOT INICIADO EM MODO SIMULAÇÃO — Nenhuma ordem real será enviada!")
+                print(
+                    "🚀 BOT INICIADO EM MODO SIMULAÇÃO — Nenhuma ordem real será enviada!")
             else:
                 print("⚡ BOT INICIADO EM MODO REAL — Ordens reais serão enviadas!")
 
             while True:
+                # ✅ CORREÇÃO: Lógica de janela de horário e processamento movida para cá
                 if self.config.get("usar_janela_horario", False):
                     janelas_config = self.config.get("janelas_horario", [])
                     agora = datetime.now().time()
                     janelas = []
                     for janela in janelas_config:
                         try:
-                            inicio = datetime.strptime(janela["inicio"], "%H:%M").time()
-                            fim = datetime.strptime(janela["fim"], "%H:%M").time()
+                            inicio = datetime.strptime(
+                                janela["inicio"], "%H:%M").time()
+                            fim = datetime.strptime(
+                                janela["fim"], "%H:%M").time()
                             janelas.append((inicio, fim))
                         except:
                             continue
@@ -185,69 +274,11 @@ class BotBase:
                 except Exception as e:
                     print(f"⚠️ Erro na conexão: {e}")
                     await asyncio.sleep(2)
-                    await reconectar_websocket(self.mercado, self.saldo, self.executor, self.token, self.config["volatility_index"])
-                    continue
-                
-                price = data["price"]
-                self.prices.append(price)
-                if len(self.prices) > 60:
-                    self.prices.pop(0)
-
-                volatilidade = calcular_volatilidade(self.prices)
-                limiar_volatilidade = float(self.config.get("limiar_volatilidade", 0.0005))
-                decisao = self.estrategia.decidir(self.prices, volatilidade, limiar_volatilidade)
-                if not isinstance(decisao, (list, tuple)):
-                    print("⚠️ Estratégia retornou um valor inesperado:", decisao)
-                    continue
-                tipo = decisao[0] if len(decisao) > 0 else None
-                padrao = decisao[-1] if len(decisao) > 0 else None
-                if tipo is None:
+                    await self._reconectar_websocket()
                     continue
 
-                try:
-                    saldo_atual = await self.saldo.consultar()
-                except Exception as e:
-                    print(f"🔌 Falha ao consultar saldo ({e}). Tentando reconectar...")
-                    await reconectar_websocket(self.mercado, self.saldo, self.executor, self.token, self.config["volatility_index"])
-                    continue
-                
-                stake = self.gestor.get_stake()
-                print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
+                await self._processar_tick(data)
 
-                try:
-                    resposta = await self._executar_operacao(tipo, stake, padrao)
-                    if resposta is None:
-                        continue
-                    resultado = resposta["resultado"]
-                    direcao = resposta.get("direcao", tipo)
-                    stake_executada = resposta.get("stake", stake)
-                    self.gestor.registrar_resultado(
-                        resultado,
-                        payout=resposta.get("payout", 0.0),
-                        stake_executada=stake_executada
-                    )
-                    if padrao:
-                        self.estatistica.registrar_operacao(padrao, resultado)
-                    etapa = getattr(self.gestor, "contador", getattr(self.gestor, "etapa", 1))
-                    print(f"📊 Gestor: {self.config.get('gestor')} | Etapa: {etapa}")
-                    self.sequencia_resultados.append(resultado)
-                    if len(self.sequencia_resultados) > 5:
-                        self.sequencia_resultados.pop(0)
-                    print(f"📉 Últimos resultados: {' → '.join(self.sequencia_resultados)}")
-                    if padrao:
-                        taxa = self.estatistica.calcular_taxa_acerto(padrao)
-                        print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
-                    self.logger.registrar(direcao, price, None, None, None, stake)
-                    print(
-                        f"📝 Operação registrada: {resultado.upper()} | Direção: {direcao} | "
-                        f"Stake: {stake} | Payout: {resposta.get('payout', 0)} | Horário: {datetime.now().strftime('%H:%M:%S')}"
-                    )
-                    if padrao and self.estatistica.estatisticas.get(padrao, {}).get("total", 0) >= self.config.get("max_operacoes", 20):
-                        print("⏸️ Limite de operações atingido.")
-                        break
-                except Exception as e:
-                    print(f"🔌 Falha na execução da ordem ({e}).")
-                    continue
         except Exception as e:
             raise e
         finally:

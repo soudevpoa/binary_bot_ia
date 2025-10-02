@@ -1,22 +1,22 @@
-# No arquivo treinar_modelo.py
-
 import asyncio
 import json
 import numpy as np
 import os
 from core.modelo_neural import ModeloNeural
-from indicadores.indicadores import calcular_rsi, calcular_mm, calcular_volatilidade
+# Deixamos os imports abaixo caso você decida usar indicadores no futuro, mas não são usados agora.
+from indicadores.indicadores import calcular_rsi, calcular_mm, calcular_volatilidade 
 from core.mercado import Mercado
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 # Define o número de ticks que você quer usar para o treinamento.
-# É uma boa prática deixar isso como uma variável para facilitar o ajuste.
-NUMERO_TICKS_TREINO = 20000 
+NUMERO_TICKS_TREINO = 50000 
 
 async def coletar_dados(token, ativo, num_ticks):
     """Função para coletar ticks do mercado."""
     mercado = Mercado("wss://ws.derivws.com/websockets/v3?app_id=1089", token, ativo)
     await mercado.conectar()
-    await mercado.autenticar(token) # Adicionamos a autenticação para garantir
+    await mercado.autenticar(token)
     await mercado.subscrever_ticks(ativo)
 
     prices = []
@@ -25,56 +25,59 @@ async def coletar_dados(token, ativo, num_ticks):
         try:
             msg = await mercado.ws.recv()
             data = mercado.processar_tick(msg)
-            if data and data['msg_type'] == 'tick':
+            if data and data.get('msg_type') == 'tick':
                 prices.append(data["price"])
-                # print(f"📥 Tick recebido: {data['price']}") # Descomente para ver o log de ticks
         except Exception as e:
             print(f"⚠️ Erro ao coletar ticks: {e}")
             break
     
     await mercado.desconectar()
+    print("🔌 Conexão com o Mercado Deriv fechada.")
     return prices
 
 def preparar_dataset(prices, config):
-    """Prepara o dataset para o treinamento da IA."""
+    """
+    ✅ AJUSTE: Prepara o dataset para o treinamento da IA, usando os últimos N preços brutos.
+    """
     features, labels = [], []
-    # Usamos os parâmetros do config.json
-    periodo_min = max(config.get("mm_periodo_longo", 20), 14)
-    window_size = periodo_min
+    # Usa o tamanho da janela definido no config.json (200)
+    window_size = config.get("tamanho_janela_ia", 200) 
 
+    # O loop precisa de pelo menos o tamanho da janela + 1 para o label
     for i in range(len(prices) - window_size - 1):
-        subset = prices[i:i+window_size]
-        next_price = prices[i+window_size]
+        # X: O conjunto de 200 preços anteriores (features)
+        X_subset = prices[i:i + window_size] 
+        
+        # y: O próximo preço (para definir o label)
+        next_price = prices[i + window_size] 
 
-        rsi = calcular_rsi(subset)
-        mm_curta = calcular_mm(subset, config["mm_periodo_curto"])
-        mm_longa = calcular_mm(subset, config["mm_periodo_longo"])
-        vol = calcular_volatilidade(subset)
-
-        f = np.array([rsi, mm_curta, mm_longa, vol])
-        features.append(f)
-        labels.append(1 if next_price > subset[-1] else 0)
+        # A feature é a lista dos 200 preços.
+        features.append(X_subset) 
+        
+        # O Label é 1 para CALL (subida) e 0 para PUT (descida/lateralização)
+        labels.append(1 if next_price > X_subset[-1] else 0)
 
     return np.array(features), np.array(labels)
 
 async def main():
     """Função principal para o treinamento do modelo."""
     try:
-        # 🚨 CORREÇÃO 1: Lê as configurações do arquivo
+        if not os.path.exists("configs/config_megalodon.json"):
+            raise FileNotFoundError("config_megalodon.json não encontrado. Verifique o caminho.")
         with open("configs/config_megalodon.json", "r") as f:
             config = json.load(f)
-    except FileNotFoundError:
-        print("❌ Erro: arquivo config_megalodon.json não encontrado.")
+    except FileNotFoundError as e:
+        print(f"❌ Erro: {e}")
         return
 
     token = config.get("token")
     ativo = config.get("volatility_index")
+    window_size = config.get("tamanho_janela_ia", 200)
     
     if not token or not ativo:
         print("❌ Erro: Token ou Volatility Index ausentes no config_megalodon.json.")
         return
 
-    # 🚨 CORREÇÃO 2: Usa as variáveis do config.json
     prices = await coletar_dados(token, ativo, num_ticks=NUMERO_TICKS_TREINO)
 
     if not prices:
@@ -85,19 +88,43 @@ async def main():
     X, y = preparar_dataset(prices, config)
 
     if len(X) == 0:
-        print("❌ Dados insuficientes para treino. Tente aumentar o número de ticks.")
+        print("❌ Dados insuficientes para treino. Tente aumentar o número de ticks ou a janela IA.")
         return
+    
+    print(f"🧠 Treinando modelo com {len(X)} amostras e {window_size} features...")
+    # ✅ AJUSTE: Inicializa o modelo com o input_shape correto (200)
+    modelo = ModeloNeural(input_shape=window_size) 
+    
+    # ----------------------------------------------------
+    # ✅ AJUSTE CRÍTICO: Normalizar os dados e fitar o Scaler
+    # ----------------------------------------------------
+    print("⚖️ Normalizando e preparando dados...")
+    scaler = MinMaxScaler()
+    # O scaler é treinado (fitado) com o conjunto COMPLETO de features X (N, 200)
+    X_normalizado = scaler.fit_transform(X) 
+    
+    # Associa o scaler ao modelo para que ele possa ser salvo e usado na operação
+    modelo.scaler = scaler
+    
+    # Divide os dados normalizados
+    X_treino, X_teste, y_treino, y_teste = train_test_split(
+        X_normalizado, y, test_size=0.2, random_state=42
+    )
+    
+    print(f"🧠 Treinando modelo com {len(X_treino)} amostras de treino...")
+    # ----------------------------------------------------
+    # ✅ FIM DO AJUSTE
+    # ----------------------------------------------------
+    
+    modelo.treinar(X_treino, y_treino, X_teste, y_teste)
 
-    print(f"🧠 Treinando modelo com {len(X)} amostras...")
-    modelo = ModeloNeural()
-    modelo.treinar(X, y)
-
-    # 🚨 CORREÇÃO 3: Usamos os métodos da classe para salvar os arquivos
+    # Usamos os métodos da classe para salvar os arquivos
     print("💾 Salvando modelo e scaler...")
-    modelo.salvar_modelo("modelo_megalodon.h5")
+    modelo.salvar("modelo_megalodon.h5")
     modelo.salvar_scaler("scaler_megalodon.pkl")
 
-    print(f"✅ Treinamento concluído e arquivos salvos. Acurácia: {modelo.acuracia:.2f}%")
+    # A acurácia deve ser acessada via atributo do modelo após o treino (se implementado)
+    print(f"✅ Treinamento concluído e arquivos salvos.") 
 
 if __name__ == "__main__":
     asyncio.run(main())

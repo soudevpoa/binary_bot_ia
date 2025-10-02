@@ -1,70 +1,54 @@
-import numpy as np
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
-from sklearn.preprocessing import StandardScaler
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout
+from keras.optimizers import Adam
+import joblib
+
 
 class ModeloNeural:
-    def __init__(self):
-        self.scaler = StandardScaler()
-        self.model = Sequential([
-            Dense(8, input_dim=4, activation='relu'),
-            Dense(4, activation='relu'),
+    def __init__(self, input_shape):
+        self.input_shape = input_shape
+        self.modelo = self._construir_modelo()
+        self.scaler = None
+        self.acuracia = 0.0
+
+    def _construir_modelo(self):
+        modelo = Sequential([
+            Dense(64, activation='relu', input_shape=(self.input_shape,)),
+            Dropout(0.2),
+            Dense(32, activation='relu'),
+            Dropout(0.2),
             Dense(1, activation='sigmoid')
         ])
-        self.model.compile(optimizer=Adam(learning_rate=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+        modelo.compile(optimizer='adam',
+                       loss='binary_crossentropy', metrics=['accuracy'])
+        return modelo
+
+    def treinar(self, x_treino, y_treino, x_teste, y_teste, epochs=100, batch_size=32):
+        print("🧠 Treinando modelo...")
+        historico = self.modelo.fit(
+            x_treino,
+            y_treino,
+            epochs=epochs,
+            batch_size=batch_size,
+            validation_data=(x_teste, y_teste),
+            verbose=1
+        )
+        self.acuracia = historico.history['accuracy'][-1] * 100
+        print("✅ Treinamento concluído.")
+
+    def salvar(self, file_path):
+        self.modelo.save(file_path)
+
+    def carregar(self, file_path):
+        self.modelo = keras.saving.load_model(file_path)
 
     def salvar_scaler(self, file_path):
-        """Salva o scaler em um arquivo .pkl."""
         joblib.dump(self.scaler, file_path)
 
     def carregar_scaler(self, file_path):
-        """Carrega o scaler de um arquivo .pkl."""
         self.scaler = joblib.load(file_path)
-        
-    def treinar(self, X, y, epochs=50):
-        
-        X_scaled = self.scaler.fit_transform(X)
-        self.model.fit(X_scaled, y, epochs=epochs, verbose=0)
 
-
-    def prever(self, features):
-        """
-        Faz a predição e retorna a probabilidade numérica.
-        """
-        # Escala os dados de entrada
-        features_scaled = self.scaler.transform(features)
-
-        # Faz a predição com o modelo e pega a probabilidade
-        # [0][0] porque o Keras retorna a predição como um array bidimensional
-        prob = self.model.predict(features_scaled, verbose=0)[0][0]
-
-        # --- AJUSTE FEITO AQUI ---
-        # Agora a função retorna a probabilidade (um número float),
-        # em vez da classe (texto "up" ou "down").
-        # A decisão de "CALL" ou "PUT" será feita na estratégia (bot_megalodon.py)
-        # usando essa probabilidade.
-        return prob
-
-
-
-    def prever_lote(self, X):
-        X_scaled = self.scaler.transform(X)
-        probs = self.model.predict(X_scaled, verbose=0).flatten()
-        return ["up" if p > 0.5 else "down" for p in probs]
-    
-    def salvar_modelo(self, caminho="modelo_megalodon.h5"):
-        self.model.save(caminho)
-
-    def carregar_modelo(self, caminho="modelo_megalodon.h5"):
-        from tensorflow.keras.models import load_model
-        self.model = load_model(caminho)
-
-    def carregar_scaler(self, caminho="scaler_megalodon.pkl"):
-        import joblib
-        self.scaler = joblib.load(caminho)
-        if not hasattr(self.scaler, "mean_"):
-            raise ValueError("⚠️ Scaler carregado, mas não está ajustado. Execute o treino novamente.")
-
-
-
+    def prever(self, dados_normalizados):
+        previsao = self.modelo.predict(dados_normalizados)
+        return previsao[0][0]
