@@ -1,70 +1,49 @@
-from flask import Flask, request, jsonify
-import threading
 import asyncio
-from bots.bot_megalodon import BotMegalodon
-from core.mercado import Mercado
-import os
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from core.executor import ExecutorBot  # Ajusta o import conforme o teu executor
 
-app = Flask(__name__)
+app = FastAPI(title="Binary Bot Híbrido - API")
 
-# Estado do bot
-estado_bot = {
-    "ativo": False,
-    "loss_virtual_count": 0,
-    "stake_base": 2.0,
-    "limite_loss_virtual": 4
-}
+# Instância global do executor do bot
+executor = None
 
-bot_thread = None
+class BotConfig(BaseModel):
+    token: str
+    estrategia: str
+    stake: float
+    stop_loss: float
+    take_profit: float
 
-def executar_bot():
-    config = {
-        "stake_base": estado_bot["stake_base"],
-        "limite_loss_virtual": estado_bot["limite_loss_virtual"],
-        "modo_simulacao": False,
-        "mm_periodo_curto": 5,
-        "mm_periodo_longo": 20,
-        "limiar_volatilidade": 0.2
+@app.on_event("startup")
+async def startup_event():
+    global executor
+    executor = ExecutorBot()
+
+@app.post("/bot/start")
+async def start_bot(config: BotConfig):
+    global executor
+    if executor.is_running:
+        raise HTTPException(status_code=400, detail="O bot já está em execução.")
+    
+    # Inicia o loop do bot em background de forma totalmente assíncrona
+    asyncio.create_task(executor.iniciar(config.dict()))
+    return {"status": "sucesso", "mensagem": f"Bot iniciado com a estratégia {config.estrategia}"}
+
+@app.post("/bot/stop")
+async def stop_bot():
+    global executor
+    if not executor.is_running:
+        raise HTTPException(status_code=400, detail="O bot já está parado.")
+    
+    await executor.parar()
+    return {"status": "sucesso", "mensagem": "Comando de paragem enviado com sucesso."}
+
+@app.get("/bot/status")
+async def get_status():
+    global executor
+    return {
+        "executando": executor.is_running,
+        "saldo_atual": executor.saldo_atual if executor else 0,
+        "lucro_total": executor.lucro_total if executor else 0
     }
-
-    token = "SEU_TOKEN_AQUI"
-    url = "wss://ws.binaryws.com/websockets/v3?app_id=1089"  # ✅ URL da corretora
-    os.makedirs("painel", exist_ok=True)
-    estatisticas_file = os.path.join("painel", "estatisticas.json")
-
-    bot = BotMegalodon(config, token, estatisticas_file)
-    bot.mercado = Mercado(url, token, config["limiar_volatilidade"])  # ✅ Corrigido
-    asyncio.run(bot.iniciar())
-
-
-@app.route("/iniciar", methods=["POST"])
-def iniciar():
-    global bot_thread
-    if bot_thread is None or not bot_thread.is_alive():
-        bot_thread = threading.Thread(target=executar_bot)
-        bot_thread.start()
-        estado_bot["ativo"] = True
-        return jsonify({"status": "Bot iniciado com sucesso."})
-    else:
-        return jsonify({"status": "Bot já está em execução."})
-
-@app.route("/parar", methods=["POST"])
-def parar():
-    estado_bot["ativo"] = False
-    return jsonify({"status": "Sinal enviado para parar o bot."})
-
-@app.route("/status", methods=["GET"])
-def status():
-    return jsonify(estado_bot)
-
-@app.route("/atualizar_config", methods=["POST"])
-def atualizar_config():
-    data = request.json
-    estado_bot.update(data)
-    return jsonify({"status": "Configurações atualizadas", "config": estado_bot})
-
-def rodar_api():
-    app.run(port=5000)
-
-if __name__ == "__main__":
-    rodar_api()

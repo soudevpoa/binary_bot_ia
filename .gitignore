@@ -30,4 +30,15 @@ estatisticas_*.json
 # Sistema operacional
 .DS_Store
 Thumbs.db
+# Ficheiros compilados do Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
+# Configurações locais e chaves de segurança
+.env
+auth.json
+
+# Modelos pesados gerados localmente (opcional, se não quiseres subir o .h5)
+*.h5

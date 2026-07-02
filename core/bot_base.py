@@ -19,7 +19,7 @@ from core.gestores.martingale_tradicional import MartingaleTradicional
 
 class BotBase:
     def __init__(self, config, token, estrategia, estatisticas_file):
-        self.config = config
+        self.config = config.json
         self.token = token
         self.estrategia = estrategia
         self.prices = []
