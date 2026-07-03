@@ -1,15 +1,16 @@
 {
+"estrategia": "rsi_bollinger",
 "volatility_index": "R_100",
 "rsi_period": 14,
 "bollinger_period": 20,
 "desvio": 2,
 "stake_base": 0.40,
+"account_id": "DOT92382874",
 "meta_lucro_percentual": 0.10,
 "stop_loss_percentual": 0.05,
 "max_operacoes": 100,
-"token": "GT5nKSpPMDLIJIg",
 "estatisticas_file": "estatisticas/rsi_bollinger.json",
-"modo_simulacao": true,
+"modo_simulacao": false,
 "usar_janela_horario": false,
 "janelas_horario": [
     { "inicio": "14:00", "fim": "16:00" }

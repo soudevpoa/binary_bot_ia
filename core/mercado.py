@@ -3,6 +3,7 @@ import websockets
 import asyncio
 import os
 from collections import deque
+import requests
 
 class Mercado:
     def __init__(self, url, token, volatility_index):
@@ -22,25 +23,58 @@ class Mercado:
         self.volatility_index = volatility_index
         self.precos = deque(maxlen=200)
         self.ws = None
-
-    async def conectar(self):
-        # Mudamos o print para mostrar o app_id real que definimos no __init__ (o "36544")
-        print(f"🔌 Conectando ao servidor da Deriv (App ID: {self.url.split('app_id=')[1]})...")
-        self.ws = await websockets.connect(self.url)
-
-    async def autenticar(self, token):
-        # Usamos o token que já foi limpo no __init__
-        await self.ws.send(json.dumps({"authorize": self.token}))
-        
+    
+    async def carregar_ticks_iniciais(self, symbol, count=100):
+        """Carrega ticks históricos via WebSocket"""
+        request = {
+            "ticks_history": symbol,
+            "count": count,
+            "end": "latest"
+        }
+        await self.ws.send(json.dumps(request))
         response = await self.ws.recv()
         data = json.loads(response)
+
+        precos = []
+        if "history" in data and "prices" in data["history"]:
+            precos = [float(p) for p in data["history"]["prices"]]
+        return precos
         
+
+    def gerar_otp(self, account_id):
+        url = f"https://api.derivws.com/trading/v1/options/accounts/{account_id}/otp"
+        app_id = os.getenv("APP_ID", "1089").strip()
+        headers = {
+            "Deriv-App-Id": app_id,
+            "Authorization": f"Bearer {self.token}"
+        }
+
+        response = requests.post(url, headers=headers)
+        otp_data = response.json()
+
+        if response.status_code == 200 and "data" in otp_data and "url" in otp_data["data"]:
+            return otp_data["data"]["url"]
+        else:
+            raise Exception(f"Erro ao gerar OTP: {otp_data}")
+
+
+    async def conectar(self, account_id=None):
+        # Gera OTP e pega a URL correta
+        ws_url = self.gerar_otp(account_id)
+        print(f"🔌 Conectando ao servidor da Deriv com OTP...")
+        self.ws = await websockets.connect(ws_url)
+
+
+
+    async def autenticar(self, token):
+        await self.ws.send(json.dumps({"authorize": self.token}))
+        response = await self.ws.recv()
+        data = json.loads(response)
+
         if data.get("msg_type") == "authorize" and "error" not in data:
-            print("🔐 Autenticado com sucesso na Deriv!")
+            print("🔐 Autenticado com sucesso na Deriv usando PAT!")
             return True
-            
-        print(f"❌ Falha na autenticação: {data}")
-        return False
+
 
     async def subscrever_ticks(self, symbol):
         await self.ws.send(json.dumps({"ticks": symbol, "subscribe": 1}))

@@ -3,6 +3,7 @@ import json
 import statistics
 import random
 import time
+import os
 from datetime import datetime
 from core.gestores.stake_fixa import StakeFixa
 from core.gestores.soros import Soros
@@ -19,7 +20,7 @@ from core.gestores.martingale_tradicional import MartingaleTradicional
 
 class BotBase:
     def __init__(self, config, token, estrategia, estatisticas_file):
-        self.config = config.json
+        self.config = config
         self.token = token
         self.estrategia = estrategia
         self.prices = []
@@ -218,15 +219,25 @@ class BotBase:
 
     async def iniciar(self):
         try:
+            app_id = os.getenv("APP_ID", "1089")
+            print(f"🔌 Conectando ao servidor da Deriv (App ID: {app_id})...")
             self.mercado = Mercado(
-                "wss://ws.derivws.com/websockets/v3?app_id=1089",
-                self.token,
-                self.config.get("volatility_index")
+                url="https://api.derivws.com/trading/v1/options/ws/public",  # base
+                token=self.token,
+                volatility_index=self.config.get("volatility_index")
             )
-            await self.mercado.conectar()
+            await self.mercado.conectar(account_id=self.config.get("account_id"))
+
             if not await self.mercado.autenticar(self.token):
+                print("❌ Falha na autenticação com Deriv. Verifique o PAT.")
                 return
             await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
+            ticks_iniciais = await self.mercado.carregar_ticks_iniciais(self.config.get("volatility_index"), count=100)
+            for preco in ticks_iniciais:
+                self.mercado.precos.append(preco)
+                self.prices.append(preco)
+
+            print(f"📊 {len(ticks_iniciais)} ticks históricos carregados para inicialização.")
             asyncio.create_task(self.mercado.manter_conexao())
 
             self.executor = Executor(

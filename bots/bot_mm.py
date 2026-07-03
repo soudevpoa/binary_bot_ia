@@ -1,3 +1,5 @@
+# bots/bot_mm.py
+
 import json
 from core.bot_base import BotBase
 from estrategias.media_movel import EstrategiaMediaMovel
@@ -14,12 +16,6 @@ class BotMM(BotBase):
         print(f"📈 Bot MM iniciado com estratégia: {self.estrategia}")
         await super().iniciar()
 
-async def iniciar_bot_mm(config, token, estatisticas_file):
-    # A função agora recebe os argumentos diretamente do iniciar_bot.py
-    # Removemos a lógica de carregar o arquivo aqui
-    
-    # Instancia a classe do bot com os argumentos recebidos
-    bot = BotMM(config, token, estatisticas_file)
-    
-    # Retorna a instância do bot
-    return bot
+# Função de inicialização para ser chamada pelo main.py
+def iniciar_bot_mm(config, token):
+    return BotMM(config, token, config.get("estatisticas_file"))
