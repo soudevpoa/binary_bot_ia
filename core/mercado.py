@@ -25,25 +25,54 @@ class Mercado:
         self.handlers.append(handler)
 
     async def conectar(self, account_id=None):
-        ws_url = self.gerar_otp(account_id)
-        print("🔌 Conectando ao servidor da Deriv com OTP...")
-        # ✅ ping_interval e ping_timeout para evitar queda por keepalive
+        # Se houver um account_id, faz o fluxo Bearer Token + OTP idêntico ao print da doc!
+        if account_id:
+            try:
+                ws_url = self.gerar_otp(account_id)
+            except Exception as e:
+                print(f"⚠️ Falha ao autenticar via Bearer HTTP (OTP): {e}")
+                print("Tentando conexão direta padrão...")
+                ws_url = self.url
+        else:
+            ws_url = self.url
+
+        print(f"🔌 Conectando ao servidor autorizado da Deriv...")
         self.ws = await websockets.connect(ws_url, ping_interval=20, ping_timeout=20)
 
     def gerar_otp(self, account_id):
+        if not account_id or account_id == "None":
+            raise ValueError("ID da conta inválido para geração de OTP.")
+            
         url = f"https://api.derivws.com/trading/v1/options/accounts/{account_id}/otp"
-        app_id = os.getenv("APP_ID", "1089").strip()
+        app_id = os.getenv("APP_ID", "33IS1efhxY1mZfek6mlx3").strip()
         headers = {
             "Deriv-App-Id": app_id,
             "Authorization": f"Bearer {self.token}"
         }
+        
+        print(f"🔗 [DEBUG] Solicitando OTP. URL: {url}")
+        print(f"🔗 [DEBUG] Headers enviados: {{'Deriv-App-Id': '{app_id}', 'Authorization': 'Bearer [ESCONDIDO]'}}")
+        
         response = requests.post(url, headers=headers)
-        otp_data = response.json()
+        
+        # 💡 IMPRIME O RETORNO BRUTO DO SERVIDOR DA DERIV NO TERMINAL
+        print("==================================================")
+        print(f"🚨 [DEBUG] STATUS CODE DA DERIV: {response.status_code}")
+        print(f"🚨 [DEBUG] RETORNO BRUTO DA DERIV: {response.text}")
+        print("==================================================")
+        
+        try:
+            otp_data = response.json()
+        except Exception:
+            raise Exception(f"Resposta da Deriv não foi um JSON válido. Verifique o retorno bruto acima.")
+
         if response.status_code == 200 and "data" in otp_data and "url" in otp_data["data"]:
+            print("✅ URL com OTP gerada via Bearer Token com sucesso!")
             return otp_data["data"]["url"]
         else:
-            raise Exception(f"Erro ao gerar OTP: {otp_data}")
-
+            detalhe_erro = otp_data.get("error", {}).get("message", "Erro desconhecido")
+            raise Exception(f"Deriv recusou a criação do OTP: {detalhe_erro} (Status {response.status_code})")
+   
     async def autenticar(self, token):
         await self.ws.send(json.dumps({"authorize": self.token}))
         response = await self.ws.recv()
@@ -51,6 +80,9 @@ class Mercado:
         if data.get("msg_type") == "authorize" and "error" not in data:
             print("🔐 Autenticado com sucesso na Deriv usando PAT!")
             return True
+        else:
+            print(f"❌ Erro de Autenticação WebSocket: {data.get('error', {}).get('message', 'Erro desconhecido')}")
+            return False
 
     async def subscrever_ticks(self, symbol):
         await self.ws.send(json.dumps({"ticks": symbol, "subscribe": 1}))
@@ -73,7 +105,7 @@ class Mercado:
             precos = [float(p) for p in data["history"]["prices"]]
         return precos
 
-    async def manter_conexao(self, account_id):
+    async def manter_conexao(self, account_id=None):
         while True:
             try:
                 msg = await self.ws.recv()   # ✅ único recv central

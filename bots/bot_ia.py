@@ -59,16 +59,20 @@ class BotIA:
         self.modelo_ia = ModeloIA() # Instancia a classe do modelo de IA
         self.estatistica = ProbabilidadeEstatistica(estatisticas_file)
 
-    async def iniciar(self):
+    # Altere a linha do def iniciar:
+    async def iniciar(self, account_id=None):
         mercado = Mercado("wss://ws.derivws.com/websockets/v3?app_id=1089", self.token, self.config["volatility_index"])
-        await mercado.conectar()
+        
+        # Repassa o account_id para o conectar
+        await mercado.conectar(account_id=account_id)
         if not await mercado.autenticar(self.token):
             return
 
         await mercado.subscrever_ticks(self.config["volatility_index"])
         asyncio.create_task(mercado.manter_conexao())
 
-        executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"])
+        # 💡 CORREÇÃO: Altere a linha 74 para este formato exato:
+        executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"], mercado)
         logger = Logger()
         saldo = Saldo(mercado.ws)
 
@@ -78,7 +82,7 @@ class BotIA:
         stop_loss = saldo_inicial * self.config.get("stop_loss_percentual", 0.05)
 
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
-        martingale = MartingaleInteligente(stake_base=stake_base, max_niveis=3)
+        martingale = MartingaleInteligente(stake_base=stake_base)
         
         # 💡 CORREÇÃO 1: Removida a linha duplicada 'estatistica = ProbabilidadeEstatistica()' que quebrava o app!
 
@@ -108,13 +112,16 @@ class BotIA:
 
             try:
                 msg = await mercado.ws.recv()
+                # 💡 CORREÇÃO: Transforma a string recebida em um dicionário válido!
+                msg_data = json.loads(msg)
             except Exception as e:
                 print(f"⚠️ Erro na conexão: {e}")
                 await asyncio.sleep(2)
                 await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
                 continue
 
-            data = mercado.processar_tick(msg)
+            # 💡 Passamos o dicionário 'msg_data' já convertido em vez da string 'msg'
+            data = mercado.processar_tick(msg_data)
             if not data:
                 continue
 

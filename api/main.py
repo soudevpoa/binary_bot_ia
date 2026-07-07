@@ -58,12 +58,6 @@ def obter_instancia_bot(configuracao: BotStartSchema):
     elif estrategia == "rsi":
         return BotRSI(configuracao.par_moeda, configuracao.token)
     elif estrategia == "ia":
-        # 💡 CORREÇÃO DEFINITIVA: Garante que o arquivo nasça com chaves '{}' válidas para o json.load() não quebrar
-        if not os.path.exists(arquivo_estatisticas) or os.path.getsize(arquivo_estatisticas) == 0:
-            with open(arquivo_estatisticas, "w") as f:
-                f.write("{}")
-            print(f"📁 [API] Arquivo '{arquivo_estatisticas}' inicializado com JSON válido.")
-
         config_ia_padrao = {
             "volatility_index": configuracao.par_moeda,
             "stake": configuracao.stake_inicial,
@@ -72,11 +66,9 @@ def obter_instancia_bot(configuracao: BotStartSchema):
             "mm_periodo_curto": 10,
             "mm_periodo_longo": 20,
             "modo_simulacao": False,
-            "max_operacoes": 20
+            "max_operacoes": 20,
+            "account_id": configuracao.account_id  # 💡 Injeta o account_id aqui
         }
-        
-        return BotIA(config_ia_padrao, configuracao.token, arquivo_estatisticas)
-        
         return BotIA(config_ia_padrao, configuracao.token, arquivo_estatisticas)
     elif estrategia == "price_action":
         return BotPriceAction(configuracao.par_moeda, configuracao.token)
@@ -86,7 +78,7 @@ def obter_instancia_bot(configuracao: BotStartSchema):
         raise ValueError(f"Estratégia '{configuracao.estrategia}' não reconhecida no sistema.")
 
 async def gerenciar_ciclo_vida_bot(user_id: str, configuracao: BotStartSchema):
-    """Inicializa a conexão websocket e executa a rotina do bot assincronamente"""
+    """Inicializa a conexão websocket e executa a rotina do bot assincronamente com log detalhado de erros"""
     bot = None
     try:
         bot = obter_instancia_bot(configuracao)
@@ -95,12 +87,16 @@ async def gerenciar_ciclo_vida_bot(user_id: str, configuracao: BotStartSchema):
         print(f"🤖 [API] Inicializando {configuracao.estrategia.upper()} para {user_id} no ativo {configuracao.par_moeda}")
         
         # Executa o loop assíncrono principal (que conecta via WS, consome velas e usa o Executor)
-        await bot.iniciar()
-        
+        account_id = configuracao.account_id
+        await bot.iniciar(account_id=account_id)
     except asyncio.CancelledError:
         print(f"🛑 [API] Tarefa do bot para {user_id} foi explicitamente cancelada.")
     except Exception as e:
+        # 💡 AJUSTE: Importa e cospe o rastro completo do erro na tela do terminal
+        import traceback
         print(f"❌ [API] Erro crítico na execução do bot de {user_id}: {e}")
+        print("🔍 [DEBUG] Rastro completo do erro abaixo:")
+        traceback.print_exc()
     finally:
         # Garante o fechamento seguro da conexão se ela ainda existir
         if bot and hasattr(bot, 'desconectar'):
