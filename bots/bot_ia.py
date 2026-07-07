@@ -59,11 +59,8 @@ class BotIA:
         self.modelo_ia = ModeloIA() # Instancia a classe do modelo de IA
         self.estatistica = ProbabilidadeEstatistica(estatisticas_file)
 
-    # Altere a linha do def iniciar:
     async def iniciar(self, account_id=None):
         mercado = Mercado("wss://ws.derivws.com/websockets/v3?app_id=1089", self.token, self.config["volatility_index"])
-        
-        # Repassa o account_id para o conectar
         await mercado.conectar(account_id=account_id)
         if not await mercado.autenticar(self.token):
             return
@@ -71,7 +68,7 @@ class BotIA:
         await mercado.subscrever_ticks(self.config["volatility_index"])
         asyncio.create_task(mercado.manter_conexao())
 
-        # 💡 CORREÇÃO: Altere a linha 74 para este formato exato:
+        # Ordem de parâmetros alinhada com o construtor real de core/executor.py
         executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"], mercado)
         logger = Logger()
         saldo = Saldo(mercado.ws)
@@ -82,9 +79,8 @@ class BotIA:
         stop_loss = saldo_inicial * self.config.get("stop_loss_percentual", 0.05)
 
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
+        # Inicialização do Martingale sem o argumento max_niveis inesperado
         martingale = MartingaleInteligente(stake_base=stake_base)
-        
-        # 💡 CORREÇÃO 1: Removida a linha duplicada 'estatistica = ProbabilidadeEstatistica()' que quebrava o app!
 
         print(f"🧠 Bot de IA iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
@@ -111,16 +107,15 @@ class BotIA:
                     continue
 
             try:
-                msg = await mercado.ws.recv()
-                # 💡 CORREÇÃO: Transforma a string recebida em um dicionário válido!
-                msg_data = json.loads(msg)
+                # 💡 CORREÇÃO 1: Consome direto da fila do mercado para evitar conflito com o manter_conexao
+                msg_data = await mercado.queue.get()
+                mercado.queue.task_done()
             except Exception as e:
-                print(f"⚠️ Erro na conexão: {e}")
+                print(f"⚠️ Erro ao colher dados da fila: {e}")
                 await asyncio.sleep(2)
-                await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
                 continue
 
-            # 💡 Passamos o dicionário 'msg_data' já convertido em vez da string 'msg'
+            # 💡 Como os dados vêm da fila prontos como dicionário, enviamos direto ao processar_tick
             data = mercado.processar_tick(msg_data)
             if not data:
                 continue
@@ -166,7 +161,7 @@ class BotIA:
             if self.modo_simulacao:
                 import random
                 resultado = random.choice(["win", "loss"])
-                print(f"🧪 Simulação ativa | Resultado: {resultado}")
+                print(f"🧪 Simulação active | Resultado: {resultado}")
                 resposta = {
                     "resultado": resultado,
                     "payout": stake * 0.95,
@@ -186,7 +181,7 @@ class BotIA:
 
             resultado = resposta["resultado"]
             payout = resposta.get("payout", 0)
-            timestamp = resposta.get("timestamp")
+            timestamp = response.get("timestamp") if 'response' in locals() else resposta.get("timestamp")
             direcao = resposta.get("direcao")
 
             print(f"📊 Resultado: {resultado}")
@@ -194,7 +189,6 @@ class BotIA:
                 painel.registrar_operacao(saldo_atual, resultado, stake, direcao)
                 martingale.registrar_resultado(resultado)
                 
-                # 💡 CORREÇÃO 2: Aponta para a instância correta iniciada pela API
                 self.estatistica.registrar_operacao(padrao, resultado)
                 taxa = self.estatistica.calcular_taxa_acerto(padrao)
                 
@@ -227,8 +221,10 @@ class BotIA:
         print("Coletando dados para o treinamento do modelo de IA...")
         prices_data = []
         for _ in range(100):
-            msg = await mercado.ws.recv()
-            data = mercado.processar_tick(msg)
+            # 💡 CORREÇÃO 2: Coleta os dados de treino da fila central para evitar o crash de corrotinas concorrentes
+            msg_data = await mercado.queue.get()
+            mercado.queue.task_done()
+            data = mercado.processar_tick(msg_data)
             if data:
                 prices_data.append(data["price"])
         
