@@ -2,6 +2,8 @@
 
   "volatility_index": "R_100",
   "estatisticas_file": "estatisticas/mm_rsi.json",
+  "estrategia": "mm_rsi",
+  "account_id": "DOT92382874",
   "mm_periodo_curto": 5,
   "mm_periodo_longo": 20,
   "rsi_period": 14,
@@ -11,7 +13,6 @@
   "meta_lucro_percentual": 0.10,
   "stop_loss_percentual": 0.05,
   "max_operacoes": 200,
-  "token": "GT5nKSpPMDLIJIg",
   "modo_simulacao": true,
   "usar_janela_horario": true,
   "janelas_horario": [

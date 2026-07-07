@@ -1,7 +1,8 @@
 {
-  "token": "GT5nKSpPMDLIJIg",
   "estatisticas_file": "estatisticas/mm.json",
   "volatility_index": "R_50",
+  "estrategia": "mm",
+  "account_id": "DOT92382874",
   "stake_base": 1.0,
   "mm_periodo_curto": 5,
   "mm_periodo_longo": 20,

@@ -48,7 +48,7 @@ async def reconectar_websocket(mercado, saldo, executor, token, index):
     print("🔄 Reconexão concluída. Retomando operações...")
 
 class BotIA:
-    def __init__(self, config, token,estatisticas_file):
+    def __init__(self, config, token, estatisticas_file):
         self.historico_volatilidade = []
         self.config = config
         self.token = token
@@ -79,7 +79,8 @@ class BotIA:
 
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
         martingale = MartingaleInteligente(stake_base=stake_base, max_niveis=3)
-        estatistica = ProbabilidadeEstatistica()
+        
+        # 💡 CORREÇÃO 1: Removida a linha duplicada 'estatistica = ProbabilidadeEstatistica()' que quebrava o app!
 
         print(f"🧠 Bot de IA iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
@@ -146,8 +147,6 @@ class BotIA:
                 print("⏳ Nenhum sinal de IA gerado. Aguardando próximo tick.")
                 continue
 
-            # ... (Restante do código de execução é o mesmo do bot_base.py) ...
-
             if mercado.ws.state != "OPEN":
                 print("🔌 WebSocket fechado. Tentando reconectar...")
                 await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
@@ -158,8 +157,6 @@ class BotIA:
             print(f"🔔 Sinal detectado: {tipo} | 💰 Stake: {stake:.2f}")
 
             if self.modo_simulacao:
-                # Aqui você precisa de uma lógica para determinar o "resultado" para o treino da IA
-                # Isso seria feito em um backtest real, mas para simulação, vamos usar um resultado aleatório
                 import random
                 resultado = random.choice(["win", "loss"])
                 print(f"🧪 Simulação ativa | Resultado: {resultado}")
@@ -189,8 +186,11 @@ class BotIA:
             if resultado in ["win", "loss"]:
                 painel.registrar_operacao(saldo_atual, resultado, stake, direcao)
                 martingale.registrar_resultado(resultado)
-                estatistica.registrar_operacao(direcao, resultado, padrao)
-                taxa = estatistica.calcular_taxa_acerto(padrao)
+                
+                # 💡 CORREÇÃO 2: Aponta para a instância correta iniciada pela API
+                self.estatistica.registrar_operacao(padrao, resultado)
+                taxa = self.estatistica.calcular_taxa_acerto(padrao)
+                
                 print(f"📈 Taxa de acerto para '{padrao}': {taxa}%")
                 logger.registrar(direcao, price, None, None, None, stake)
 
@@ -216,18 +216,15 @@ class BotIA:
             else:
                 print("⚠️ Erro ou resultado inválido. Continuando...")
     
-    # Este método é fundamental para treinar a IA
     async def treinar_modelo(self, mercado):
         print("Coletando dados para o treinamento do modelo de IA...")
         prices_data = []
-        # Coleta 100 ticks para o treino inicial (pode aumentar este número)
         for _ in range(100):
             msg = await mercado.ws.recv()
             data = mercado.processar_tick(msg)
             if data:
                 prices_data.append(data["price"])
         
-        # Cria as features e os labels para o treino
         features = []
         labels = []
         for i in range(len(prices_data) - 1):
@@ -240,7 +237,6 @@ class BotIA:
                 
                 features.append([rsi_val, mm_curta, mm_longa, volatilidade])
                 
-                # O label é o resultado do próximo tick
                 if prices_data[i+1] > prices_data[i]:
                     labels.append("up")
                 else:

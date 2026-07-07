@@ -58,13 +58,12 @@ def obter_instancia_bot(configuracao: BotStartSchema):
     elif estrategia == "rsi":
         return BotRSI(configuracao.par_moeda, configuracao.token)
     elif estrategia == "ia":
-        # 💡 CORREÇÃO: Se o arquivo de estatísticas não existir ou estiver vazio, cria ele com um JSON válido '{}'
+        # 💡 CORREÇÃO DEFINITIVA: Garante que o arquivo nasça com chaves '{}' válidas para o json.load() não quebrar
         if not os.path.exists(arquivo_estatisticas) or os.path.getsize(arquivo_estatisticas) == 0:
             with open(arquivo_estatisticas, "w") as f:
                 f.write("{}")
-            print(f"📁 [API] Arquivo '{arquivo_estatisticas}' inicializado com sucesso para evitar erros de leitura.")
+            print(f"📁 [API] Arquivo '{arquivo_estatisticas}' inicializado com JSON válido.")
 
-        # Cria o dicionário de configuração padrão exigido pela IA
         config_ia_padrao = {
             "volatility_index": configuracao.par_moeda,
             "stake": configuracao.stake_inicial,
@@ -75,6 +74,8 @@ def obter_instancia_bot(configuracao: BotStartSchema):
             "modo_simulacao": False,
             "max_operacoes": 20
         }
+        
+        return BotIA(config_ia_padrao, configuracao.token, arquivo_estatisticas)
         
         return BotIA(config_ia_padrao, configuracao.token, arquivo_estatisticas)
     elif estrategia == "price_action":

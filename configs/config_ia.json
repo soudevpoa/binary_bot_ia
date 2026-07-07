@@ -1,4 +1,5 @@
 {
+    
     "volatility_index": "R_75",
     "mm_periodo_curto": 5,
     "mm_periodo_longo": 20,
@@ -6,7 +7,6 @@
     "meta_lucro_percentual": 0.10,
     "stop_loss_percentual": 0.05,
     "max_operacoes": 20,
-    "token": "GT5nKSpPMDLIJIg",
     "modo_simulacao": true,
     "usar_janela_horario": false,
     "janelas_horario": [
@@ -15,5 +15,6 @@
     ],
     "min_operacoes_para_analise": 10,
     "taxa_minima_acerto": 60,
-    "estrategia": "ia"
+    "estrategia": "ia",
+    "account_id": "DOT92382874"
 }
