@@ -22,7 +22,7 @@ config_*.json
 *.db
 historico_megalodon.json
 estatisticas_*.json
-
+desempenho.json
 # IDEs
 .vscode/
 .idea/
