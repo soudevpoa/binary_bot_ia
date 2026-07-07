@@ -15,38 +15,34 @@ from bots.bot_mm_rsi import iniciar_bot_mm_rsi
 # Carrega variáveis do .env
 load_dotenv()
 
-# Lê o nome da estratégia como argumento
-estrategia_nome = sys.argv[1]  # Ex: "rsi_bollinger"
+# Valida argumento
+if len(sys.argv) < 2:
+    print("❌ Informe o nome da estratégia (ex: rsi_bollinger).")
+    sys.exit(1)
 
-# Monta o caminho do config correspondente
+estrategia_nome = sys.argv[1]
 config_path = f"configs/config_{estrategia_nome}.json"
-
-# Carrega o config específico
 config = carregar_config(config_path)
 
-# Agora o token vem do .env
+# Token da API
 token = os.getenv("DERIV_API_TOKEN", "").strip()
 if not token:
     print("❌ Nenhum token encontrado no .env! Verifique DERIV_API_TOKEN.")
+    sys.exit(1)
 else:
     print(f"🔑 Token carregado (prefixo): {token[:10]}...")
 
-# Seleciona o bot com base no argumento
-if estrategia_nome == "rsi_bollinger":
-    bot = iniciar_bot_rsi(config, token)
+# Seleção de estratégia
+estrategias = {
+    "rsi_bollinger": iniciar_bot_rsi,
+    "price_action": iniciar_bot_price_action,
+    "reversao_tendencia": iniciar_bot_reversao,
+    "media_movel": iniciar_bot_mm,
+    "mm_rsi": iniciar_bot_mm_rsi
+}
 
-elif estrategia_nome == "price_action":
-    bot = iniciar_bot_price_action(config, token)
-
-elif estrategia_nome == "reversao_tendencia":
-    bot = iniciar_bot_reversao(config, token)
-
-elif estrategia_nome == "media_movel":
-    bot = iniciar_bot_mm(config, token)
-
-elif estrategia_nome == "mm_rsi":
-    bot = iniciar_bot_mm_rsi(config, token)
-
+if estrategia_nome in estrategias:
+    bot = estrategias[estrategia_nome](config, token)
 elif estrategia_nome == "bollinger_volatilidade":
     from estrategias.bollinger_volatilidade import EstrategiaBollingerVolatilidade
     estrategia = EstrategiaBollingerVolatilidade(
@@ -55,6 +51,9 @@ elif estrategia_nome == "bollinger_volatilidade":
         limiar_volatilidade=config["limiar_volatilidade"]
     )
     bot = BotBase(config, token, estrategia)
+else:
+    print(f"❌ Estratégia '{estrategia_nome}' não reconhecida.")
+    sys.exit(1)
 
-# Inicia o bot
+print(f"🚀 Iniciando bot com estratégia: {estrategia_nome}")
 asyncio.run(bot.iniciar())

@@ -3,90 +3,79 @@ import asyncio
 from datetime import datetime
 
 class Executor:
-    def __init__(self, ws, symbol, stake):
+    def __init__(self, ws, symbol, stake_base, mercado):
         self.ws = ws
         self.symbol = symbol
-        self.stake = stake
+        self.stake_base = stake_base
+        self.mercado = mercado
+        self.respostas = asyncio.Queue()
+
+        # Registrar handler para capturar mensagens relevantes
+        self.mercado.registrar_handler(self._handler)
+
+    async def _handler(self, data):
+        # Filtra mensagens de interesse
+        if data.get("msg_type") in ["proposal", "buy", "proposal_open_contract"]:
+            await self.respostas.put(data)
 
     async def enviar_ordem(self, direcao, stake):
-        ordem = {
-            "buy": 1,
-            "price": stake,
-            "parameters": {
+        try:
+            # 1️⃣ Solicita proposta
+            proposta = {
+                "proposal": 1,
                 "amount": stake,
                 "basis": "stake",
-                "contract_type": direcao,
+                "contract_type": direcao.upper(),
                 "currency": "USD",
                 "duration": 5,
                 "duration_unit": "t",
-                "symbol": self.symbol
+                "underlying_symbol": self.symbol
             }
-        }
+            await self.ws.send(json.dumps(proposta))
 
-        try:
+            data = await self.respostas.get()
+            if data.get("msg_type") != "proposal":
+                return {"resultado": "erro_proposta"}
+
+            proposta_data = data.get("proposal", {})
+            proposal_id = proposta_data.get("id")
+            payout = proposta_data.get("payout")
+
+            if not proposal_id or not payout or payout <= 0:
+                print("⚠️ Proposta inválida ou sem payout.")
+                return {"resultado": "payout_invalido"}
+
+            print(f"📥 Proposta recebida: {proposal_id} | Payout esperado: {payout}")
+
+            # 2️⃣ Confirma compra
+            ordem = {"buy": proposal_id, "price": stake}
             await self.ws.send(json.dumps(ordem))
-            print(f"📥 Ordem preparada: {json.dumps(ordem, indent=2)}")
 
-            contract_id = None
-
-            # Aguarda confirmação de compra
-            for _ in range(10):
-                try:
-                    msg = await asyncio.wait_for(self.ws.recv(), timeout=10)
-                    data = json.loads(msg)
-                except Exception as e:
-                    print(f"⚠️ Erro ao receber resposta da ordem: {e}")
-                    continue
-
-                if data.get("msg_type") == "buy":
-                    contract_id = data["buy"].get("contract_id")
-                    print(f"📩 Confirmação de compra: {contract_id}")
-                    break
-
-            if not contract_id:
-                print("❌ Falha ao obter contract_id.")
+            data = await self.respostas.get()
+            if data.get("msg_type") != "buy":
                 return {"resultado": "erro_sem_contrato"}
 
-            print(f"📡 Acompanhando contrato: {contract_id}")
+            contract_id = data["buy"].get("contract_id")
+            if not contract_id:
+                return {"resultado": "erro_sem_contrato"}
 
-            # Loop dedicado para aguardar expiração
-            for tentativa in range(60):  # até 60 segundos
+            print(f"📩 Confirmação de compra: {contract_id}")
+
+            # 3️⃣ Acompanha contrato (máx 60 tentativas)
+            for tentativa in range(60):
                 await asyncio.sleep(2)
-
-                # Reenvia requisição para obter status atualizado
                 await self.ws.send(json.dumps({
                     "proposal_open_contract": 1,
                     "contract_id": contract_id
                 }))
-
-                try:
-                    msg = await asyncio.wait_for(self.ws.recv(), timeout=10)
-                    data = json.loads(msg)
-                except Exception as e:
-                    print(f"⚠️ Erro ao receber atualização do contrato: {e}")
-                    continue
-
+                data = await self.respostas.get()
                 if data.get("msg_type") == "proposal_open_contract":
                     contrato = data.get("proposal_open_contract", {})
-                    status = contrato.get("status")
-                    expirado = contrato.get("is_expired", False)
-                    payout = contrato.get("payout", 0)
-
-                    if expirado:
-                        # Mapeia status da API para o formato interno
-                        mapa_status = {
-                            "won": "win",
-                            "lost": "loss",
-                            "sold": "sold",
-                            "expired": "expired",
-                            "cancelled": "cancelled"
-                        }
-
-                        # Preserva o status original se não estiver no mapa
-                        resultado = mapa_status.get(status, status if status else "status_indefinido")
-
+                    if contrato.get("is_expired"):
+                        status = contrato.get("status")
+                        payout = contrato.get("payout", 0)
+                        resultado = {"won": "win", "lost": "loss"}.get(status, status)
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
                         print(f"📌 Contrato encerrado | Resultado: {resultado.upper()} | Payout: {payout}")
                         return {
                             "resultado": resultado,
@@ -96,15 +85,10 @@ class Executor:
                             "stake": stake,
                             "timestamp": timestamp
                         }
-
-
-                    print(f"📊 Status atual do contrato: {status}")
-                else:
-                    print(f"📥 Ignorando mensagem irrelevante: {data.get('msg_type')}")
-
             print("⚠️ Tempo limite atingido sem expiração do contrato.")
             return {"resultado": "erro_timeout"}
 
         except Exception as e:
             print(f"❌ Erro ao enviar ordem: {e}")
             return {"resultado": "erro_conexao"}
+
