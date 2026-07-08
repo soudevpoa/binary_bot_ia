@@ -131,7 +131,8 @@ class BotIA:
 
             price = data["price"]
             self.prices.append(price)
-
+            if len(self.prices) < 30:
+                print(f"⏳ Aquecendo a IA ({len(self.prices)}/30) | Lendo mercado: {price}")
             if len(self.prices) > 60:
                 self.prices.pop(0)
 

@@ -90,8 +90,9 @@ class Mercado:
 
     async def subscrever_ticks(self, symbol):
         if self.ws and hasattr(self.ws, 'state') and self.ws.state.name == "OPEN":
-            print(f"📊 Solicitando subscrição de ticks para {symbol}...")
-            await self.ws.send(json.dumps({"ticks": symbol}))
+            print(f"📊 Solicitando subscrição contínua de ticks para {symbol}...")
+            # ⚠️ ADICIONADO O "subscribe": 1 PARA MANTER A TORNEIRA DE DADOS ABERTA
+            await self.ws.send(json.dumps({"ticks": symbol, "subscribe": 1}))
             return True
         return False
 
