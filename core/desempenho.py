@@ -28,6 +28,10 @@ class Desempenho:
         except (FileNotFoundError, json.JSONDecodeError):
             self.salvar() # Cria um novo arquivo se ele não existir ou estiver corrompido
 
+    def registrar_operacao(self, saldo_atual, resultado, stake, direcao):
+        print(f"📊 Painel: Operação {resultado} registrada. Saldo: ${saldo_atual:.2f}")
+        self.operacoes.append({"resultado": resultado, "saldo": saldo_atual})    
+
     def salvar(self):
         dados = {
             "saldo_atual": self.saldo_atual,

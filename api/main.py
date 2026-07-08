@@ -39,6 +39,7 @@ TAREFAS_BACKGROUND = {}
 def obter_instancia_bot(configuracao: BotStartSchema):
     """Fábrica dinâmica que mapeia as propriedades recebidas do Front para o formato esperado por cada bot"""
     estrategia = configuracao.estrategia.lower()
+    arquivo_estatisticas = "desempenho.json"
     
     # 💡 Montamos o dicionário unificado que o bot_ia.py e os arquivos de config .json originais usam
     config_dict = {
@@ -56,9 +57,9 @@ def obter_instancia_bot(configuracao: BotStartSchema):
     
     if estrategia == "media_movel":
         # Se os outros robôs esperam (par_moeda, token), mantemos o padrão funcional deles
-        return BotMM(configuracao.par_moeda, configuracao.token)
+        return BotMM(config_dict, configuracao.token, arquivo_estatisticas)
     elif estrategia == "rsi":
-        return BotRSI(configuracao.par_moeda, configuracao.token)
+        return BotRSI(config_dict, configuracao.token, arquivo_estatisticas)
     elif estrategia == "ia":
         config_ia_padrao = {
             "volatility_index": configuracao.par_moeda,
@@ -69,13 +70,13 @@ def obter_instancia_bot(configuracao: BotStartSchema):
             "mm_periodo_longo": 20,
             "modo_simulacao": False,
             "max_operacoes": 20,
-            "account_id": configuracao.account_id  # 💡 Injeta o account_id aqui
+            "account_id": configuracao.account_id 
         }
         return BotIA(config_ia_padrao, configuracao.token, arquivo_estatisticas)
     elif estrategia == "price_action":
-        return BotPriceAction(configuracao.par_moeda, configuracao.token)
+        return BotPriceAction(config_dict, configuracao.token, arquivo_estatisticas)
     elif estrategia == "reversao":
-        return BotReversao(configuracao.par_moeda, configuracao.token)
+        return BotReversao(config_dict, configuracao.token, arquivo_estatisticas)
     else:
         raise ValueError(f"Estratégia '{configuracao.estrategia}' não reconhecida no sistema.")
 

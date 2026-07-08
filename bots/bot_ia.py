@@ -96,9 +96,14 @@ class BotIA:
         print(f"🧠 Bot de IA iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
 
         # Fase de treinamento do modelo
-        if self.modo_simulacao:
-            print("🚀 Treinando o modelo de IA em modo de simulação...")
+       # Fase de treinamento inicial automático do modelo
+        # Verifica se o ficheiro físico da IA existe na raiz do projeto
+        if not os.path.exists("modelo_ia.pkl"):
+            print("🚀 Cérebro da IA vazio (ficheiro modelo_ia.pkl não encontrado).")
+            print("A iniciar recolha de 100 ticks do mercado para o primeiro treino. Aguarde...")
             await self.treinar_modelo(mercado)
+        else:
+            print("🧠 Cérebro da IA carregado com sucesso. A iniciar leitura para operações...")
 
         while True:
             if self.config.get("usar_janela_horario", False):
@@ -133,6 +138,7 @@ class BotIA:
             self.prices.append(price)
             if len(self.prices) < 30:
                 print(f"⏳ Aquecendo a IA ({len(self.prices)}/30) | Lendo mercado: {price}")
+                continue
             if len(self.prices) > 60:
                 self.prices.pop(0)
 

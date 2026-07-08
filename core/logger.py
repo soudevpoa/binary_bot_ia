@@ -37,6 +37,10 @@ class Logger:
                 self.safe_round(upper),
                 round(stake, 2)
             ])
+    def registrar(self, direcao, preco, status, contract_id, resultado, stake):
+        # Este método serve apenas para guardar o histórico da operação
+        mensagem = f"OPERAÇÃO: {direcao} | PREÇO: {preco} | RESULTADO: {resultado} | STAKE: {stake}"
+        self.log("INFO", mensagem)        
 
     def log(self, nivel, mensagem):
         """Registra mensagem em sistema.log"""

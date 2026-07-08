@@ -1,21 +1,16 @@
 # bots/bot_mm.py
-
-import json
 from core.bot_base import BotBase
 from estrategias.media_movel import EstrategiaMediaMovel
 
 class BotMM(BotBase):
     def __init__(self, config, token, estatisticas_file):
+        # Configura a estratégia específica
         estrategia = EstrategiaMediaMovel(
-            periodo_curto=config["mm_periodo_curto"],
-            periodo_longo=config["mm_periodo_longo"]
+            periodo_curto=config.get("mm_periodo_curto", 10),
+            periodo_longo=config.get("mm_periodo_longo", 20)
         )
+        # Passa tudo para o BotBase
         super().__init__(config, token, estrategia, estatisticas_file)
 
-    async def iniciar(self):
-        print(f"📈 Bot MM iniciado com estratégia: {self.estrategia}")
-        await super().iniciar()
-
-# Função de inicialização para ser chamada pelo main.py
-def iniciar_bot_mm(config, token):
-    return BotMM(config, token, config.get("estatisticas_file"))
+    # ✅ O método iniciar() foi removido. 
+    # Agora ele usa o do BotBase automaticamente, que já aceita o account_id!

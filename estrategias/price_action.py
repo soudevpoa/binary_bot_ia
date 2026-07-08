@@ -47,3 +47,7 @@ class EstrategiaPriceAction:
 
         print("⏸️ Nenhuma condição atendida → Neutro")
         return None, "neutro"
+    def analisar(self, prices):
+        # Aqui chamamos o teu método 'decidir' que já tens pronto
+        # Como o decidir pede volatilidade, passamos None para não quebrar a lógica
+        return self.decidir(prices, volatilidade=None, limiar_dinamico=None)

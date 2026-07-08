@@ -1,1 +1,14 @@
-{}
+{
+    "cruzamento_alta": {
+        "total": 19,
+        "win": 13,
+        "loss": 6,
+        "taxa_acerto": 68.42105263157895
+    },
+    "cruzamento_baixa": {
+        "total": 24,
+        "win": 16,
+        "loss": 8,
+        "taxa_acerto": 66.66666666666666
+    }
+}

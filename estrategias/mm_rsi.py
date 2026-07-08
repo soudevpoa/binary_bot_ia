@@ -91,3 +91,4 @@ class EstrategiaMMRSI:
 
         print("⏸️ Nenhuma condição atendida → Neutro")
         return None, "neutro"
+    
