@@ -33,45 +33,40 @@ class Executor:
             }
             await self.ws.send(json.dumps(proposta))
 
+            # Aguarda a resposta filtrada pelo handler central
             data = await self.respostas.get()
-            if data.get("msg_type") != "proposal":
+            if data.get("msg_type") != "proposal" or "error" in data:
                 return {"resultado": "erro_proposta"}
 
             proposta_data = data.get("proposal", {})
-            proposal_id = proposta_data.get("id")
-            payout = proposta_data.get("payout")
+            id_proposta = proposta_data.get("id")
 
-            if not proposal_id or not payout or payout <= 0:
-                print("⚠️ Proposta inválida ou sem payout.")
-                return {"resultado": "payout_invalido"}
-
-            print(f"📥 Proposta recebida: {proposal_id} | Payout esperado: {payout}")
-
-            # 2️⃣ Confirma compra
-            ordem = {"buy": proposal_id, "price": stake}
-            await self.ws.send(json.dumps(ordem))
+            # 2️⃣ Executa a compra do contrato baseado na proposta
+            compra = {
+                "buy": id_proposta,
+                "price": stake
+            }
+            await self.ws.send(json.dumps(compra))
 
             data = await self.respostas.get()
-            if data.get("msg_type") != "buy":
-                return {"resultado": "erro_sem_contrato"}
+            if data.get("msg_type") != "buy" or "error" in data:
+                return {"resultado": "erro_compra"}
 
-            contract_id = data["buy"].get("contract_id")
-            if not contract_id:
-                return {"resultado": "erro_sem_contrato"}
+            contract_id = data.get("buy", {}).get("contract_id")
+            print(f"🛒 Contrato comprado! ID: {contract_id} | Aguardando resultado...")
 
-            print(f"📩 Confirmação de compra: {contract_id}")
-
-            # 3️⃣ Acompanha contrato (máx 60 tentativas)
-            for tentativa in range(60):
-                await asyncio.sleep(2)
+            # 3️⃣ Monitoramento do Contrato (Máximo de 60 tentativas)
+            for _ in range(60):
+                await asyncio.sleep(1)
                 await self.ws.send(json.dumps({
                     "proposal_open_contract": 1,
                     "contract_id": contract_id
                 }))
+                
                 data = await self.respostas.get()
                 if data.get("msg_type") == "proposal_open_contract":
                     contrato = data.get("proposal_open_contract", {})
-                    if contrato.get("is_expired"):
+                    if contrato.get("is_expired") or contrato.get("status") in ["won", "lost"]:
                         status = contrato.get("status")
                         payout = contrato.get("payout", 0)
                         resultado = {"won": "win", "lost": "loss"}.get(status, status)
@@ -85,10 +80,10 @@ class Executor:
                             "stake": stake,
                             "timestamp": timestamp
                         }
+            
             print("⚠️ Tempo limite atingido sem expiração do contrato.")
             return {"resultado": "erro_timeout"}
 
         except Exception as e:
             print(f"❌ Erro ao enviar ordem: {e}")
             return {"resultado": "erro_conexao"}
-

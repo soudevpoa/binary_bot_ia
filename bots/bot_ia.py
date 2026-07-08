@@ -16,7 +16,7 @@ from core.probabilidade_estatistica import ProbabilidadeEstatistica
 from core.modelo_ia import ModeloIA
 from indicadores.indicadores import calcular_rsi, calcular_mm, calcular_bb, calcular_volatilidade
 
-# Funções auxiliares (manter como estão)
+# Funções auxiliares
 def calcular_volatilidade(prices):
     if len(prices) < 2:
         return 0.0
@@ -39,8 +39,8 @@ def validar_resposta_contrato(resposta):
 
     return True, "ok"
 
-async def reconectar_websocket(mercado, saldo, executor, token, index):
-    await mercado.conectar()
+async def reconectar_websocket(mercado, saldo, executor, token, index, account_id=None):
+    await mercado.conectar(account_id=account_id)
     await mercado.autenticar(token)
     await mercado.subscrever_ticks(index)
     executor.ws = mercado.ws
@@ -60,18 +60,30 @@ class BotIA:
         self.estatistica = ProbabilidadeEstatistica(estatisticas_file)
 
     async def iniciar(self, account_id=None):
-        mercado = Mercado("wss://ws.derivws.com/websockets/v3?app_id=1089", self.token, self.config["volatility_index"])
+        # 1. Carrega o APP_ID diretamente do arquivo .env de forma dinâmica
+        app_id = os.getenv("APP_ID", "1089").strip()
+        url_websocket = f"wss://ws.derivws.com/websockets/v3?app_id={app_id}"
+        
+        # Instancia a classe Mercado utilizando a URL montada com o .env
+        mercado = Mercado(url_websocket, self.token, self.config["volatility_index"])
+        
+        # 2. Abre a conexão WebSocket inicial
         await mercado.conectar(account_id=account_id)
-        if not await mercado.autenticar(self.token):
-            return
-
+        
+        # 3. Dispara IMEDIATAMENTE o loop único central em segundo plano para assumir o controle do recv()
+        asyncio.create_task(mercado.manter_conexao(account_id=account_id))
+        
+        # 4. Pequeno delay de 1 segundo para garantir que o loop manter_conexao registrou o controle do WebSocket
+        await asyncio.sleep(1)
+        
+        # 5. Envia as solicitações. O loop central gerencia e consome com segurança as respostas sem colidir corrotinas
+        await mercado.autenticar(self.token)
         await mercado.subscrever_ticks(self.config["volatility_index"])
-        asyncio.create_task(mercado.manter_conexao())
 
         # Ordem de parâmetros alinhada com o construtor real de core/executor.py
         executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"], mercado)
         logger = Logger()
-        saldo = Saldo(mercado.ws)
+        saldo = Saldo(mercado.ws, mercado=mercado)
 
         saldo_inicial = await saldo.consultar()
         painel = PainelDesempenho(saldo_inicial)
@@ -79,7 +91,6 @@ class BotIA:
         stop_loss = saldo_inicial * self.config.get("stop_loss_percentual", 0.05)
 
         stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
-        # Inicialização do Martingale sem o argumento max_niveis inesperado
         martingale = MartingaleInteligente(stake_base=stake_base)
 
         print(f"🧠 Bot de IA iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
@@ -107,7 +118,6 @@ class BotIA:
                     continue
 
             try:
-                # 💡 CORREÇÃO 1: Consome direto da fila do mercado para evitar conflito com o manter_conexao
                 msg_data = await mercado.queue.get()
                 mercado.queue.task_done()
             except Exception as e:
@@ -115,7 +125,6 @@ class BotIA:
                 await asyncio.sleep(2)
                 continue
 
-            # 💡 Como os dados vêm da fila prontos como dicionário, enviamos direto ao processar_tick
             data = mercado.processar_tick(msg_data)
             if not data:
                 continue
@@ -123,13 +132,13 @@ class BotIA:
             price = data["price"]
             self.prices.append(price)
 
-            if len(self.prices) > 60: # Mantém um histórico de preços maior para mais features
+            if len(self.prices) > 60:
                 self.prices.pop(0)
 
             tipo, padrao = None, "neutro"
 
-            # 🧠 Lógica de decisão baseada na IA
-            if len(self.prices) >= 30: # Espera ter dados suficientes para calcular os indicadores
+            # Lógica de decisão baseada na IA
+            if len(self.prices) >= 30:
                 rsi_val = calcular_rsi(self.prices)
                 mm_curta = calcular_mm(self.prices, self.config["mm_periodo_curto"])
                 mm_longa = calcular_mm(self.prices, self.config["mm_periodo_longo"])
@@ -146,12 +155,11 @@ class BotIA:
                     padrao = "ia_previu_baixa"
 
             if tipo is None:
-                print("⏳ Nenhum sinal de IA gerado. Aguardando próximo tick.")
                 continue
 
             if mercado.ws.state != "OPEN":
                 print("🔌 WebSocket fechado. Tentando reconectar...")
-                await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"])
+                await reconectar_websocket(mercado, saldo, executor, self.token, self.config["volatility_index"], account_id=account_id)
 
             saldo_atual = await saldo.consultar()
             stake = martingale.get_stake()
@@ -161,11 +169,11 @@ class BotIA:
             if self.modo_simulacao:
                 import random
                 resultado = random.choice(["win", "loss"])
-                print(f"🧪 Simulação active | Resultado: {resultado}")
+                print(f"🧪 Simulação ativa | Resultado: {resultado}")
                 resposta = {
                     "resultado": resultado,
                     "payout": stake * 0.95,
-                    "timestamp": "simulado",
+                    "timestamp": datetime.now().strftime("%H:%M:%S"),
                     "direcao": tipo,
                     "stake": stake,
                     "contract_id": "simulado"
@@ -181,11 +189,13 @@ class BotIA:
 
             resultado = resposta["resultado"]
             payout = resposta.get("payout", 0)
-            timestamp = response.get("timestamp") if 'response' in locals() else resposta.get("timestamp")
+            # ✅ CORREÇÃO: Corrigido de 'response.get' para 'resposta.get' para evitar NameError/Coroutine issues
+            timestamp = resposta.get("timestamp", datetime.now().strftime("%H:%M:%S"))
             direcao = resposta.get("direcao")
 
             print(f"📊 Resultado: {resultado}")
             if resultado in ["win", "loss"]:
+                # 💡 NOTA: Se registrar_operacao ou registrar forem async def no seu core, adicione 'await' aqui!
                 painel.registrar_operacao(saldo_atual, resultado, stake, direcao)
                 martingale.registrar_resultado(resultado)
                 
@@ -221,7 +231,6 @@ class BotIA:
         print("Coletando dados para o treinamento do modelo de IA...")
         prices_data = []
         for _ in range(100):
-            # 💡 CORREÇÃO 2: Coleta os dados de treino da fila central para evitar o crash de corrotinas concorrentes
             msg_data = await mercado.queue.get()
             mercado.queue.task_done()
             data = mercado.processar_tick(msg_data)

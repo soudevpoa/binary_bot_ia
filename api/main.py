@@ -3,6 +3,8 @@ import os
 import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+load_dotenv()
 
 # Garante que o Python encontre todas as pastas locais de módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

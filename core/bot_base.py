@@ -283,17 +283,46 @@ class BotBase:
                 await asyncio.sleep(15)
 
 
-    async def iniciar(self):
-        try:
-            app_id = os.getenv("APP_ID", "1089")
-            self.logger.log("INFO", f"Conectando ao servidor da Deriv (App ID: {app_id})...")
+    async def iniciar(self, account_id=None):
+        # 1. Carrega o APP_ID diretamente do arquivo .env de forma dinâmica
+        app_id = os.getenv("APP_ID", "1089").strip()
+        url_websocket = f"wss://ws.derivws.com/websockets/v3?app_id={app_id}"
+        
+        # Instancia a classe Mercado utilizando a URL montada com o .env
+        mercado = Mercado(url_websocket, self.token, self.config["volatility_index"])
+        
+        # 2. Abre a conexão WebSocket inicial
+        await mercado.conectar(account_id=account_id)
+        
+        # 3. Dispara IMEDIATAMENTE o loop único central em segundo plano para assumir o controle do recv()
+        asyncio.create_task(mercado.manter_conexao(account_id=account_id))
+        
+        # 4. Pequeno delay de 1 segundo para garantir que o loop manter_conexao registrou o controle do WebSocket
+        await asyncio.sleep(1)
+        
+        # 5. Envia as solicitações. O loop central gerencia e consome com segurança as respostas sem colidir corrotinas
+        await mercado.autenticar(self.token)
+        await mercado.subscrever_ticks(self.config["volatility_index"])
 
-            # Inicializa mercado e conecta
-            self.mercado = Mercado(
-                url="https://api.derivws.com/trading/v1/options/ws/public",
-                token=self.token,
-                volatility_index=self.config.get("volatility_index")
-            )
+        # Ordem de parâmetros alinhada com o construtor real de core/executor.py
+        executor = Executor(mercado.ws, self.config["volatility_index"], self.config["stake"], mercado)
+        logger = Logger()
+        saldo = Saldo(mercado.ws)
+
+        saldo_inicial = await saldo.consultar()
+        painel = PainelDesempenho(saldo_inicial)
+        meta_lucro = saldo_inicial * self.config.get("meta_lucro_percentual", 0.10)
+        stop_loss = saldo_inicial * self.config.get("stop_loss_percentual", 0.05)
+
+        stake_base = max(round(saldo_inicial * 0.01, 2), 0.35)
+        martingale = MartingaleInteligente(stake_base=stake_base)
+
+        print(f"🧠 Bot de IA iniciado para {self.config['volatility_index']} | Saldo inicial: {saldo_inicial:.2f}")
+
+        # Fase de treinamento do modelo
+        if self.modo_simulacao:
+            print("🚀 Treinando o modelo de IA em modo de simulação...")
+            await self.treinar_modelo(mercado)
 
             while True:
                 try:
@@ -368,185 +397,6 @@ class BotBase:
                     await asyncio.sleep(15)
                     continue
 
-        finally:
-            self.logger.log("INFO", "Fechando bot. Salvando estatísticas...")
-            if hasattr(self, 'estatistica'):
-                self.estatistica.salvar_estatisticas()
-            self.logger.log("INFO", "Bot encerrado.")
-
-            try:
-                app_id = os.getenv("APP_ID", "1089")
-                self.logger.log("INFO", f"Conectando ao servidor da Deriv (App ID: {app_id})...")
-
-                # Inicializa mercado e conecta
-                self.mercado = Mercado(
-                    url="https://api.derivws.com/trading/v1/options/ws/public",
-                    token=self.token,
-                    volatility_index=self.config.get("volatility_index")
-                )
-
-                while True:
-                    try:
-                        await self.mercado.conectar(account_id=self.config.get("account_id"))
-
-                        if not await self.mercado.autenticar(self.token):
-                            self.logger.log("ERROR", "Falha na autenticação com Deriv. Verifique o PAT.")
-                            await asyncio.sleep(15)
-                            continue
-
-                        await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
-                        ticks_iniciais = await self.mercado.carregar_ticks_iniciais(
-                            self.config.get("volatility_index"), count=100
-                        )
-                        for preco in ticks_iniciais:
-                            self.mercado.precos.append(preco)
-                            self.prices.append(preco)
-
-                        self.logger.log("INFO", f"{len(ticks_iniciais)} ticks históricos carregados para inicialização.")
-
-                        # ✅ Correção: passar account_id ao manter_conexao
-                        asyncio.create_task(self.mercado.manter_conexao(account_id=self.config.get("account_id")))
-
-                        # ✅ Registrar handler para ticks
-                        async def tick_handler(data):
-                            tick = self.mercado.processar_tick(data)
-                            if tick:
-                                await self._processar_tick(tick)
-
-                        self.mercado.registrar_handler(tick_handler)
-
-                        # Inicializa executor e saldo (agora com mercado)
-                        self.executor = Executor(
-                            self.mercado.ws,
-                            self.config.get("volatility_index"),
-                            float(self.config.get("stake_base")),
-                            self.mercado
-                        )
-                        self.saldo = Saldo(self.mercado.ws)
-                        saldo_inicial = await self.saldo.consultar()
-                        self.painel = PainelDesempenho(saldo_inicial)
-
-                        self.logger.log("INFO", f"Bot iniciado para {self.config.get('volatility_index')} | Saldo inicial: {saldo_inicial:.2f}")
-                        if self.config.get("modo_simulacao", False):
-                            self.logger.log("INFO", "BOT INICIADO EM MODO SIMULAÇÃO — Nenhuma ordem real será enviada!")
-                        else:
-                            self.logger.log("INFO", "BOT INICIADO EM MODO REAL — Ordens reais serão enviadas!")
-
-                        # Loop principal de operação (sem recv direto!)
-                        while True:
-                            if self.config.get("usar_janela_horario", False):
-                                janelas_config = self.config.get("janelas_horario", [])
-                                agora = datetime.now().time()
-                                janelas = []
-                                for janela in janelas_config:
-                                    try:
-                                        inicio = datetime.strptime(janela["inicio"], "%H:%M").time()
-                                        fim = datetime.strptime(janela["fim"], "%H:%M").time()
-                                        janelas.append((inicio, fim))
-                                    except:
-                                        continue
-                                if not any(inicio <= agora <= fim for inicio, fim in janelas):
-                                    self.logger.log("INFO", "Fora da janela de operação. Aguardando...")
-                                    await asyncio.sleep(60)
-                                    continue
-
-                            # ✅ Não consome mais recv — ticks vêm via tick_handler
-                            await asyncio.sleep(1)
-
-                    except Exception as e:
-                        self.logger.log("ERROR", f"Erro crítico no iniciar: {e}")
-                        await asyncio.sleep(15)
-                        continue
-
-            finally:
-                self.logger.log("INFO", "Fechando bot. Salvando estatísticas...")
-                if hasattr(self, 'estatistica'):
-                    self.estatistica.salvar_estatisticas()
-                self.logger.log("INFO", "Bot encerrado.")
-
-                try:
-                    app_id = os.getenv("APP_ID", "1089")
-                    self.logger.log("INFO", f"Conectando ao servidor da Deriv (App ID: {app_id})...")
-
-                    # Inicializa mercado e conecta
-                    self.mercado = Mercado(
-                        url="https://api.derivws.com/trading/v1/options/ws/public",
-                        token=self.token,
-                        volatility_index=self.config.get("volatility_index")
-                    )
-
-                    while True:
-                        try:
-                            await self.mercado.conectar(account_id=self.config.get("account_id"))
-
-                            if not await self.mercado.autenticar(self.token):
-                                self.logger.log("ERROR", "Falha na autenticação com Deriv. Verifique o PAT.")
-                                await asyncio.sleep(15)
-                                continue
-
-                            await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
-                            ticks_iniciais = await self.mercado.carregar_ticks_iniciais(
-                                self.config.get("volatility_index"), count=100
-                            )
-                            for preco in ticks_iniciais:
-                                self.mercado.precos.append(preco)
-                                self.prices.append(preco)
-
-                            self.logger.log("INFO", f"{len(ticks_iniciais)} ticks históricos carregados para inicialização.")
-
-                            # ✅ Correção: passar account_id ao manter_conexao
-                            asyncio.create_task(self.mercado.manter_conexao(account_id=self.config.get("account_id")))
-
-                            # ✅ Registrar handler para ticks
-                            async def tick_handler(data):
-                                tick = self.mercado.processar_tick(json.dumps(data))
-                                if tick:
-                                    await self._processar_tick(tick)
-
-                            self.mercado.registrar_handler(tick_handler)
-
-                            # Inicializa executor e saldo
-                            self.executor = Executor(
-                                self.mercado.ws,
-                                self.config.get("volatility_index"),
-                                float(self.config.get("stake_base"))
-                            )
-                            self.saldo = Saldo(self.mercado.ws)
-                            saldo_inicial = await self.saldo.consultar()
-                            self.painel = PainelDesempenho(saldo_inicial)
-
-                            self.logger.log("INFO", f"Bot iniciado para {self.config.get('volatility_index')} | Saldo inicial: {saldo_inicial:.2f}")
-                            if self.config.get("modo_simulacao", False):
-                                self.logger.log("INFO", "BOT INICIADO EM MODO SIMULAÇÃO — Nenhuma ordem real será enviada!")
-                            else:
-                                self.logger.log("INFO", "BOT INICIADO EM MODO REAL — Ordens reais serão enviadas!")
-
-                            # Loop principal de operação (sem recv direto!)
-                            while True:
-                                if self.config.get("usar_janela_horario", False):
-                                    janelas_config = self.config.get("janelas_horario", [])
-                                    agora = datetime.now().time()
-                                    janelas = []
-                                    for janela in janelas_config:
-                                        try:
-                                            inicio = datetime.strptime(janela["inicio"], "%H:%M").time()
-                                            fim = datetime.strptime(janela["fim"], "%H:%M").time()
-                                            janelas.append((inicio, fim))
-                                        except:
-                                            continue
-                                    if not any(inicio <= agora <= fim for inicio, fim in janelas):
-                                        self.logger.log("INFO", "Fora da janela de operação. Aguardando...")
-                                        await asyncio.sleep(60)
-                                        continue
-
-                                # ✅ Não consome mais recv — ticks vêm via tick_handler
-                                await asyncio.sleep(1)
-
-                        except Exception as e:
-                            self.logger.log("ERROR", f"Erro crítico no iniciar: {e}")
-                            await asyncio.sleep(15)
-                            continue
-
                 finally:
                     self.logger.log("INFO", "Fechando bot. Salvando estatísticas...")
                     if hasattr(self, 'estatistica'):
@@ -588,17 +438,18 @@ class BotBase:
 
                                 # ✅ Registrar handler para ticks
                                 async def tick_handler(data):
-                                    tick = self.mercado.processar_tick(json.dumps(data))
+                                    tick = self.mercado.processar_tick(data)
                                     if tick:
                                         await self._processar_tick(tick)
 
                                 self.mercado.registrar_handler(tick_handler)
 
-                                # Inicializa executor e saldo
+                                # Inicializa executor e saldo (agora com mercado)
                                 self.executor = Executor(
                                     self.mercado.ws,
                                     self.config.get("volatility_index"),
-                                    float(self.config.get("stake_base"))
+                                    float(self.config.get("stake_base")),
+                                    self.mercado
                                 )
                                 self.saldo = Saldo(self.mercado.ws)
                                 saldo_inicial = await self.saldo.consultar()
@@ -717,7 +568,8 @@ class BotBase:
                                                 await asyncio.sleep(60)
                                                 continue
 
-                                        await asyncio.sleep(1)  # ✅ agora o loop só espera, ticks vêm via handler
+                                        # ✅ Não consome mais recv — ticks vêm via tick_handler
+                                        await asyncio.sleep(1)
 
                                 except Exception as e:
                                     self.logger.log("ERROR", f"Erro crítico no iniciar: {e}")
@@ -729,3 +581,180 @@ class BotBase:
                             if hasattr(self, 'estatistica'):
                                 self.estatistica.salvar_estatisticas()
                             self.logger.log("INFO", "Bot encerrado.")
+
+                            try:
+                                app_id = os.getenv("APP_ID", "1089")
+                                self.logger.log("INFO", f"Conectando ao servidor da Deriv (App ID: {app_id})...")
+
+                                # Inicializa mercado e conecta
+                                self.mercado = Mercado(
+                                    url="https://api.derivws.com/trading/v1/options/ws/public",
+                                    token=self.token,
+                                    volatility_index=self.config.get("volatility_index")
+                                )
+
+                                while True:
+                                    try:
+                                        await self.mercado.conectar(account_id=self.config.get("account_id"))
+
+                                        if not await self.mercado.autenticar(self.token):
+                                            self.logger.log("ERROR", "Falha na autenticação com Deriv. Verifique o PAT.")
+                                            await asyncio.sleep(15)
+                                            continue
+
+                                        await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
+                                        ticks_iniciais = await self.mercado.carregar_ticks_iniciais(
+                                            self.config.get("volatility_index"), count=100
+                                        )
+                                        for preco in ticks_iniciais:
+                                            self.mercado.precos.append(preco)
+                                            self.prices.append(preco)
+
+                                        self.logger.log("INFO", f"{len(ticks_iniciais)} ticks históricos carregados para inicialização.")
+
+                                        # ✅ Correção: passar account_id ao manter_conexao
+                                        asyncio.create_task(self.mercado.manter_conexao(account_id=self.config.get("account_id")))
+
+                                        # ✅ Registrar handler para ticks
+                                        async def tick_handler(data):
+                                            tick = self.mercado.processar_tick(json.dumps(data))
+                                            if tick:
+                                                await self._processar_tick(tick)
+
+                                        self.mercado.registrar_handler(tick_handler)
+
+                                        # Inicializa executor e saldo
+                                        self.executor = Executor(
+                                            self.mercado.ws,
+                                            self.config.get("volatility_index"),
+                                            float(self.config.get("stake_base"))
+                                        )
+                                        self.saldo = Saldo(self.mercado.ws)
+                                        saldo_inicial = await self.saldo.consultar()
+                                        self.painel = PainelDesempenho(saldo_inicial)
+
+                                        self.logger.log("INFO", f"Bot iniciado para {self.config.get('volatility_index')} | Saldo inicial: {saldo_inicial:.2f}")
+                                        if self.config.get("modo_simulacao", False):
+                                            self.logger.log("INFO", "BOT INICIADO EM MODO SIMULAÇÃO — Nenhuma ordem real será enviada!")
+                                        else:
+                                            self.logger.log("INFO", "BOT INICIADO EM MODO REAL — Ordens reais serão enviadas!")
+
+                                        # Loop principal de operação (sem recv direto!)
+                                        while True:
+                                            if self.config.get("usar_janela_horario", False):
+                                                janelas_config = self.config.get("janelas_horario", [])
+                                                agora = datetime.now().time()
+                                                janelas = []
+                                                for janela in janelas_config:
+                                                    try:
+                                                        inicio = datetime.strptime(janela["inicio"], "%H:%M").time()
+                                                        fim = datetime.strptime(janela["fim"], "%H:%M").time()
+                                                        janelas.append((inicio, fim))
+                                                    except:
+                                                        continue
+                                                if not any(inicio <= agora <= fim for inicio, fim in janelas):
+                                                    self.logger.log("INFO", "Fora da janela de operação. Aguardando...")
+                                                    await asyncio.sleep(60)
+                                                    continue
+
+                                            # ✅ Não consome mais recv — ticks vêm via tick_handler
+                                            await asyncio.sleep(1)
+
+                                    except Exception as e:
+                                        self.logger.log("ERROR", f"Erro crítico no iniciar: {e}")
+                                        await asyncio.sleep(15)
+                                        continue
+
+                            finally:
+                                self.logger.log("INFO", "Fechando bot. Salvando estatísticas...")
+                                if hasattr(self, 'estatistica'):
+                                    self.estatistica.salvar_estatisticas()
+                                self.logger.log("INFO", "Bot encerrado.")
+
+                                try:
+                                    app_id = os.getenv("APP_ID", "1089")
+                                    self.logger.log("INFO", f"Conectando ao servidor da Deriv (App ID: {app_id})...")
+
+                                    # Inicializa mercado e conecta
+                                    self.mercado = Mercado(
+                                        url="https://api.derivws.com/trading/v1/options/ws/public",
+                                        token=self.token,
+                                        volatility_index=self.config.get("volatility_index")
+                                    )
+
+                                    while True:
+                                        try:
+                                            await self.mercado.conectar(account_id=self.config.get("account_id"))
+
+                                            if not await self.mercado.autenticar(self.token):
+                                                self.logger.log("ERROR", "Falha na autenticação com Deriv. Verifique o PAT.")
+                                                await asyncio.sleep(15)
+                                                continue
+
+                                            await self.mercado.subscrever_ticks(self.config.get("volatility_index"))
+                                            ticks_iniciais = await self.mercado.carregar_ticks_iniciais(
+                                                self.config.get("volatility_index"), count=100
+                                            )
+                                            for preco in ticks_iniciais:
+                                                self.mercado.precos.append(preco)
+                                                self.prices.append(preco)
+
+                                            self.logger.log("INFO", f"{len(ticks_iniciais)} ticks históricos carregados para inicialização.")
+
+                                            # ✅ Correção: passar account_id ao manter_conexao
+                                            asyncio.create_task(self.mercado.manter_conexao(account_id=self.config.get("account_id")))
+
+                                            # ✅ Registrar handler para ticks
+                                            async def tick_handler(data):
+                                                tick = self.mercado.processar_tick(json.dumps(data))
+                                                if tick:
+                                                    await self._processar_tick(tick)
+
+                                            self.mercado.registrar_handler(tick_handler)
+
+                                            # Inicializa executor e saldo
+                                            self.executor = Executor(
+                                                self.mercado.ws,
+                                                self.config.get("volatility_index"),
+                                                float(self.config.get("stake_base"))
+                                            )
+                                            self.saldo = Saldo(self.mercado.ws)
+                                            saldo_inicial = await self.saldo.consultar()
+                                            self.painel = PainelDesempenho(saldo_inicial)
+
+                                            self.logger.log("INFO", f"Bot iniciado para {self.config.get('volatility_index')} | Saldo inicial: {saldo_inicial:.2f}")
+                                            if self.config.get("modo_simulacao", False):
+                                                self.logger.log("INFO", "BOT INICIADO EM MODO SIMULAÇÃO — Nenhuma ordem real será enviada!")
+                                            else:
+                                                self.logger.log("INFO", "BOT INICIADO EM MODO REAL — Ordens reais serão enviadas!")
+
+                                            # Loop principal de operação (sem recv direto!)
+                                            while True:
+                                                if self.config.get("usar_janela_horario", False):
+                                                    janelas_config = self.config.get("janelas_horario", [])
+                                                    agora = datetime.now().time()
+                                                    janelas = []
+                                                    for janela in janelas_config:
+                                                        try:
+                                                            inicio = datetime.strptime(janela["inicio"], "%H:%M").time()
+                                                            fim = datetime.strptime(janela["fim"], "%H:%M").time()
+                                                            janelas.append((inicio, fim))
+                                                        except:
+                                                            continue
+                                                    if not any(inicio <= agora <= fim for inicio, fim in janelas):
+                                                        self.logger.log("INFO", "Fora da janela de operação. Aguardando...")
+                                                        await asyncio.sleep(60)
+                                                        continue
+
+                                                await asyncio.sleep(1)  # ✅ agora o loop só espera, ticks vêm via handler
+
+                                        except Exception as e:
+                                            self.logger.log("ERROR", f"Erro crítico no iniciar: {e}")
+                                            await asyncio.sleep(15)
+                                            continue
+
+                                finally:
+                                    self.logger.log("INFO", "Fechando bot. Salvando estatísticas...")
+                                    if hasattr(self, 'estatistica'):
+                                        self.estatistica.salvar_estatisticas()
+                                    self.logger.log("INFO", "Bot encerrado.")
